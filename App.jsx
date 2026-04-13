@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo, createContext
 // ─── i18n ────────────────────────────────────────────────────────────────────
 const STRINGS = {
   en: {
+    greeting: "Welcome Mariam, before starting the game make sure the blanket is tucked into the chikholi. Otherwise you will not be able to participate in the game.",
     title: "Bura",
     subtitle: "Thirty-One \u2022 2 Players",
     playTo: "Play to:",
@@ -79,6 +80,7 @@ const STRINGS = {
     oppPile: "Opp Pile",
   },
   ka: {
+    greeting: "\u10DB\u10DD\u10D2\u10D4\u10E1\u10D0\u10DA\u10DB\u10D4\u10D1\u10D8\u10D7 \u10DB\u10D0\u10E0\u10D8\u10D0\u10DB, \u10E1\u10D0\u10DC\u10D0\u10DB \u10D7\u10D0\u10DB\u10D0\u10E8\u10E1 \u10D3\u10D0\u10D8\u10EC\u10E7\u10D4\u10D1\u10D7 \u10D3\u10D0\u10E0\u10EC\u10DB\u10E3\u10DC\u10D3\u10D8\u10D7 \u10E0\u10DD\u10DB \u10E1\u10D0\u10D1\u10D0\u10DC\u10D8 \u10E9\u10D8\u10EE\u10DD\u10DA\u10E8\u10D8\u10D0 \u10E9\u10D0\u10E1\u10DB\u10E3\u10DA\u10D8. \u10EC\u10D8\u10DC\u10D0\u10D0\u10E6\u10DB\u10D3\u10D4\u10D2 \u10E8\u10D4\u10DB\u10D7\u10EE\u10D5\u10D4\u10D5\u10D0\u10E8\u10D8 \u10D7\u10E5\u10D5\u10D4\u10DC \u10D5\u10D4\u10E0 \u10DB\u10DD\u10D0\u10EE\u10D4\u10E0\u10EE\u10D4\u10D1\u10D7 \u10D7\u10D0\u10DB\u10D0\u10E8\u10E8\u10D8 \u10DB\u10DD\u10DC\u10D0\u10EC\u10D8\u10DA\u10D4\u10DD\u10D1\u10D0\u10E1.",
     title: "\u10D1\u10E3\u10E0\u10D0",
     subtitle: "\u10DD\u10EA\u10D3\u10D0\u10D7\u10DD\u10E0\u10DB\u10D4\u10E2\u10D8 \u2022 2 \u10DB\u10DD\u10D7\u10D0\u10DB\u10D0\u10E8\u10D4",
     playTo: "\u10D7\u10D0\u10DB\u10D0\u10E8\u10D8:",
@@ -686,7 +688,10 @@ function GameInner({ lang, setLang }) {
         <div className="bg-black/40 backdrop-blur-sm rounded-2xl p-8 sm:p-12 max-w-md w-full mx-4 border border-green-900/50 shadow-2xl">
           <div className="flex justify-end mb-2"><LangToggle lang={lang} setLang={setLang} /></div>
           <h1 className="text-4xl sm:text-5xl font-bold text-center text-amber-100 mb-2" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.5)" }}>{t.title}</h1>
-          <p className="text-center text-green-200/70 mb-8 text-sm">{t.subtitle}</p>
+          <p className="text-center text-green-200/70 mb-4 text-sm">{t.subtitle}</p>
+          <div className="bg-amber-900/30 border border-amber-700/30 rounded-xl px-4 py-3 mb-6">
+            <p className="text-amber-200/90 text-sm text-center leading-relaxed">{t.greeting}</p>
+          </div>
           <div className="mb-6">
             <p className="text-green-200/70 text-sm mb-2 text-center">{t.playTo}</p>
             <div className="flex justify-center gap-3">
