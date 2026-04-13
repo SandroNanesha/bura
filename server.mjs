@@ -38,7 +38,7 @@ app.put("/api/storage/:key", (req, res) => {
 
 // Serve built frontend
 app.use(express.static(join(__dirname, "dist")));
-app.get("*", (req, res) => {
+app.get("/{*splat}", (req, res) => {
   res.sendFile(join(__dirname, "dist", "index.html"));
 });
 
