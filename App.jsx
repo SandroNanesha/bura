@@ -71,6 +71,8 @@ const STRINGS = {
     decline: "Decline",
     waitingForDoubleResp: (label) => `Waiting for opponent to respond to ${label}\u2026`,
     langSwitch: "\u10E5\u10D0\u10E0",  // ქარ
+    oppDisconnected: "Opponent has left the game!",
+    oppDisconnectedSub: "Waiting for them to reconnect\u2026",
     newHandReady: "New Hand!",
     newMatchReady: "New Match!",
     pressStart: "Press Start when ready",
@@ -148,6 +150,8 @@ const STRINGS = {
     decline: "\u10E3\u10D0\u10E0\u10D8",
     waitingForDoubleResp: (label) => `\u10DB\u10DD\u10EC\u10D8\u10DC\u10D0\u10D0\u10E6\u10DB\u10D3\u10D4\u10D2\u10D4 \u10DE\u10D0\u10E1\u10E3\u10EE\u10DD\u10D1\u10E1 ${label}-\u10E1\u2026`,
     langSwitch: "ENG",
+    oppDisconnected: "\u10DB\u10DD\u10EC\u10D8\u10DC\u10D0\u10D0\u10E6\u10DB\u10D3\u10D4\u10D2\u10D4\u10DB \u10D3\u10D0\u10E2\u10DD\u10D5\u10D0 \u10D7\u10D0\u10DB\u10D0\u10E8\u10D8!",
+    oppDisconnectedSub: "\u10D5\u10D4\u10DA\u10DD\u10D3\u10D4\u10D1\u10D8\u10D7 \u10DB\u10D8\u10E1 \u10D3\u10D0\u10D1\u10E0\u10E3\u10DC\u10D4\u10D1\u10D0\u10E1\u2026",
     newHandReady: "\u10D0\u10EE\u10D0\u10DA\u10D8 \u10EE\u10D4\u10DA\u10D8!",
     newMatchReady: "\u10D0\u10EE\u10D0\u10DA\u10D8 \u10DB\u10D0\u10E2\u10E9\u10D8!",
     pressStart: "\u10D3\u10D0\u10D0\u10ED\u10D8\u10E0\u10D4\u10D7 \u10D3\u10D0\u10EC\u10E7\u10D4\u10D1\u10D0\u10E1",
@@ -408,6 +412,7 @@ function GameInner({ lang, setLang }) {
   const [selectedCards, setSelectedCards] = useState([]);
   const [statusMsg, setStatusMsg] = useState("");
   const [opponentConnected, setOpponentConnected] = useState(false);
+  const [opponentEverConnected, setOpponentEverConnected] = useState(false);
   const [lobbyPlayTo, setLobbyPlayTo] = useState(11);
   const pollRef = useRef(null);
   const playerIdxRef = useRef(playerIdx);
@@ -426,7 +431,9 @@ function GameInner({ lang, setLang }) {
       if (!state) return;
       const myIdx = playerIdxRef.current;
       if (myIdx !== null) {
-        setOpponentConnected(Date.now() - (state.lastActivity?.[1 - myIdx] || 0) < DISCONNECT_TIMEOUT);
+        const opConnected = Date.now() - (state.lastActivity?.[1 - myIdx] || 0) < DISCONNECT_TIMEOUT;
+        setOpponentConnected(opConnected);
+        if (opConnected) setOpponentEverConnected(true);
         if (state.lastActivity && Date.now() - state.lastActivity[myIdx] > 3000) {
           const fresh = await loadGameState(gid || gameIdRef.current);
           if (fresh && fresh.moveCount === state.moveCount) {
@@ -621,10 +628,16 @@ function GameInner({ lang, setLang }) {
 
   const respondToDouble = useCallback(async (accept) => {
     if (!gameState || playerIdx === null || !gameState.doublingPhase) return;
-    const state = { ...gameState, matchScores: [...gameState.matchScores] };
-    const { proposer, proposedLevel } = state.doublingPhase;
+    const { proposer, proposedLevel } = gameState.doublingPhase;
+    // Only the non-proposer can respond
+    if (proposer === playerIdx) return;
+    // Re-read fresh state to avoid stale closure issues
+    const fresh = await loadGameState(gameId);
+    if (!fresh || !fresh.doublingPhase) return; // already resolved
+    const state = { ...fresh, matchScores: [...fresh.matchScores] };
     if (accept) {
       state.stakeLevel = proposedLevel;
+      // After accepting, the ACCEPTOR gets next doubling rights
       state.doublingRights = playerIdx;
       state.doublingPhase = null;
     } else {
@@ -795,6 +808,14 @@ function GameInner({ lang, setLang }) {
       </div>
 
       {statusMsg && <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 bg-red-900/90 text-white px-4 py-2 rounded-lg text-sm shadow-lg">{statusMsg}</div>}
+
+      {/* Opponent disconnected banner */}
+      {!opponentConnected && opponentEverConnected && gameState?.phase === "playing" && (
+        <div className="bg-red-900/80 border-b border-red-700/50 px-4 py-3 text-center z-20">
+          <p className="text-white font-bold text-sm">{t.oppDisconnected}</p>
+          <p className="text-red-200/70 text-xs mt-0.5">{t.oppDisconnectedSub}</p>
+        </div>
+      )}
 
       {isPlaying && !gameState?.doublingPhase && (
         <div className="text-center py-1.5">
