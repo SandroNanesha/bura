@@ -108,8 +108,8 @@ function checkSpecials(state) {
     if (special) state.declared[i] = special;
   }
   const d0 = state.declared[0], d1 = state.declared[1];
-  if (d0 === "bura") { state.phase = "gameover"; state.winner = 0; state.winReason = "Бура! P0"; return true; }
-  if (d1 === "bura") { state.phase = "gameover"; state.winner = 1; state.winReason = "Бура! P1"; return true; }
+  if (d0 === "bura") { state.phase = "gameover"; state.winner = 0; state.winReason = "Bura! P0"; return true; }
+  if (d1 === "bura") { state.phase = "gameover"; state.winner = 1; state.winReason = "Bura! P1"; return true; }
   if (d0 && d1) {
     state.turn = (SPECIAL_PRIORITY[d0] || 0) >= (SPECIAL_PRIORITY[d1] || 0) ? 0 : 1;
   } else if (d0) { state.turn = 0; } else if (d1) { state.turn = 1; }
@@ -169,7 +169,7 @@ for (let g = 0; g < NUM_GAMES; g++) {
   // Check initial specials
   const initialGameOver = checkSpecials(state);
   if (initialGameOver) {
-    if (state.winReason.includes("Бура")) results.bura++;
+    if (state.winReason.includes("Bura")) results.bura++;
     if (state.winner === 0) results.p0wins++;
     else results.p1wins++;
     continue;
@@ -283,7 +283,7 @@ for (let g = 0; g < NUM_GAMES; g++) {
       // Check specials
       const gameOver = checkSpecials(state);
       if (gameOver) {
-        if (state.winReason.includes("Бура")) results.bura++;
+        if (state.winReason.includes("Bura")) results.bura++;
         break;
       }
 
