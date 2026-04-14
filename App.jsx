@@ -84,6 +84,7 @@ const STRINGS = {
     chat: "Chat",
     typeMessage: "Type a message\u2026",
     send: "Send",
+    backToMenu: "Back to Menu",
   },
   ka: {
     greeting: "\u10DB\u10DD\u10D2\u10D4\u10E1\u10D0\u10DA\u10DB\u10D4\u10D1\u10D8\u10D7 \u10DB\u10D0\u10E0\u10D8\u10D0\u10DB, \u10E1\u10D0\u10DC\u10D0\u10DB \u10D7\u10D0\u10DB\u10D0\u10E8\u10E1 \u10D3\u10D0\u10D8\u10EC\u10E7\u10D4\u10D1\u10D7 \u10D3\u10D0\u10E0\u10EC\u10DB\u10E3\u10DC\u10D3\u10D8\u10D7 \u10E0\u10DD\u10DB \u10E1\u10D0\u10D1\u10D0\u10DC\u10D8 \u10E9\u10D8\u10EE\u10DD\u10DA\u10E8\u10D8\u10D0 \u10E9\u10D0\u10E1\u10DB\u10E3\u10DA\u10D8. \u10EC\u10D8\u10DC\u10D0\u10D0\u10E6\u10DB\u10D3\u10D4\u10D2 \u10E8\u10D4\u10DB\u10D7\u10EE\u10D5\u10D4\u10D5\u10D0\u10E8\u10D8 \u10D7\u10E5\u10D5\u10D4\u10DC \u10D5\u10D4\u10E0 \u10DB\u10DD\u10D0\u10EE\u10D4\u10E0\u10EE\u10D4\u10D1\u10D7 \u10D7\u10D0\u10DB\u10D0\u10E8\u10E8\u10D8 \u10DB\u10DD\u10DC\u10D0\u10EC\u10D8\u10DA\u10D4\u10DD\u10D1\u10D0\u10E1.",
@@ -167,6 +168,7 @@ const STRINGS = {
     chat: "\u10E9\u10D0\u10E2\u10D8",
     typeMessage: "\u10E8\u10D4\u10E2\u10E7\u10DD\u10D1\u10D8\u10DC\u10D4\u10D1\u10D0\u2026",
     send: "\u10D2\u10D0\u10D2\u10D6\u10D0\u10D5\u10DC\u10D0",
+    backToMenu: "\u10DB\u10D4\u10DC\u10D8\u10E3\u10E8\u10D8",
   },
 };
 
@@ -403,7 +405,7 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
   return (
     <>
       {/* Toast banners for incoming messages */}
-      <div className="fixed bottom-20 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+      <div className="fixed bottom-16 right-2 z-50 flex flex-col gap-2 pointer-events-none">
         {toasts.map(toast => (
           <div key={toast.id} className="bg-black/80 text-white text-sm px-4 py-2 rounded-xl shadow-lg backdrop-blur-sm border border-green-800/40 max-w-[16rem] animate-toast-in pointer-events-auto"
             onClick={() => { setOpen(true); setToasts(prev => prev.filter(t => t.id !== toast.id)); }}>
@@ -416,7 +418,7 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
       {/* Chat toggle button */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="fixed bottom-4 right-4 z-50 w-12 h-12 rounded-full bg-green-800 hover:bg-green-700 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 border border-green-600/30"
+        className="fixed bottom-3 right-2 z-40 w-10 h-10 rounded-full bg-green-800 hover:bg-green-700 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 border border-green-600/30"
       >
         {open ? (
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -432,7 +434,7 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-20 right-4 z-50 w-72 sm:w-80 bg-gray-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-green-800/40 flex flex-col overflow-hidden animate-chat-open" style={{ maxHeight: "24rem" }}>
+        <div className="fixed bottom-16 right-2 z-50 w-64 sm:w-72 bg-gray-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-green-800/40 flex flex-col overflow-hidden animate-chat-open" style={{ maxHeight: "20rem" }}>
           {/* Header */}
           <div className="px-4 py-2.5 bg-black/40 border-b border-green-800/30 flex items-center justify-between">
             <span className="text-amber-200 font-bold text-sm">{t.chat}</span>
@@ -638,30 +640,51 @@ function GameInner({ lang, setLang }) {
     const s = await loadGameState(gid);
     if (!s) { setStatusMsg(t.gameNotFound); setTimeout(() => setStatusMsg(""), 3000); return; }
     const myTabId = tabIdRef.current;
-    if (s.tabIds?.[0] === myTabId) {
-      setPlayerIdx(0); playerIdxRef.current = 0;
+    const now = Date.now();
+
+    // Helper: claim a player slot
+    const claimSlot = async (idx) => {
+      setPlayerIdx(idx); playerIdxRef.current = idx;
       setGameId(gid); gameIdRef.current = gid; setGameIdInURL(gid);
-      s.lastActivity[0] = Date.now(); await saveGameState(gid, s);
+      s.lastActivity[idx] = now;
+      if (s.tabIds) s.tabIds[idx] = myTabId;
+      try { localStorage.setItem(`bura_slot_${gid}`, String(idx)); } catch {}
+      await saveGameState(gid, s);
       setGameState(s); setPhase(s.phase === "lobby" ? "lobby" : s.phase);
-      startSync(gid); return;
-    }
-    if (s.players >= 2) {
-      if (s.tabIds?.[1] && s.tabIds[1] !== myTabId) {
-        setStatusMsg(t.gameFull); setTimeout(() => setStatusMsg(""), 3000); return;
+      startSync(gid);
+    };
+
+    // 1. Check if our tab ID matches an existing slot
+    if (s.tabIds?.[0] === myTabId) { await claimSlot(0); return; }
+    if (s.tabIds?.[1] === myTabId) { await claimSlot(1); return; }
+
+    // 2. Check if we previously had a slot on this device (same browser, different tab)
+    try {
+      const savedSlot = localStorage.getItem(`bura_slot_${gid}`);
+      if (savedSlot !== null) {
+        const idx = Number(savedSlot);
+        if (idx === 0 || idx === 1) {
+          await claimSlot(idx); return;
+        }
       }
-      setPlayerIdx(1); playerIdxRef.current = 1;
-      setGameId(gid); gameIdRef.current = gid; setGameIdInURL(gid);
-      s.lastActivity[1] = Date.now(); if (s.tabIds) s.tabIds[1] = myTabId;
-      await saveGameState(gid, s); setGameState(s);
-      setPhase(s.phase === "lobby" ? "lobby" : s.phase);
-      startSync(gid); return;
+    } catch {}
+
+    // 3. Game not full yet — join as player 1
+    if (s.players < 2) {
+      s.players = 2; s.phase = "playing"; s.handPhase = "ready"; s.playersReady = [false, false];
+      await claimSlot(1); return;
     }
-    s.players = 2; s.phase = "playing"; s.handPhase = "ready"; s.playersReady = [false, false]; s.lastActivity[1] = Date.now();
-    if (s.tabIds) s.tabIds[1] = myTabId;
-    setPlayerIdx(1); playerIdxRef.current = 1;
-    setGameId(gid); gameIdRef.current = gid; setGameIdInURL(gid);
-    await saveGameState(gid, s); setGameState(s); setPhase("playing");
-    startSync(gid);
+
+    // 4. Game is full — check if either player is disconnected, take their slot
+    for (const idx of [1, 0]) {
+      const lastActive = s.lastActivity?.[idx] || 0;
+      if (now - lastActive > DISCONNECT_TIMEOUT) {
+        await claimSlot(idx); return;
+      }
+    }
+
+    // 5. Truly full with both players active
+    setStatusMsg(t.gameFull); setTimeout(() => setStatusMsg(""), 3000);
   }, [startSync, t]);
 
   const createGame = useCallback(async () => {
@@ -675,6 +698,7 @@ function GameInner({ lang, setLang }) {
     };
     setGameId(gid); setPlayerIdx(0); playerIdxRef.current = 0; gameIdRef.current = gid;
     setGameState(state); setPhase("lobby"); setGameIdInURL(gid);
+    try { localStorage.setItem(`bura_slot_${gid}`, "0"); } catch {}
     await saveGameState(gid, state); startSync(gid);
   }, [startSync, lobbyPlayTo]);
 
@@ -978,6 +1002,19 @@ function GameInner({ lang, setLang }) {
     saveGameState(gameId, state);
   }, [gameId, gameState]);
 
+  const backToMenu = useCallback(() => {
+    if (unsubRef.current) unsubRef.current();
+    if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+    setGameId(null); setPlayerIdx(null); setGameState(null);
+    setPhase("menu"); setSelectedCards([]); setStatusMsg("");
+    setOpponentConnected(false); setOpponentEverConnected(false);
+    setDealingCards(null); setCollectingTrick(null);
+    // Clear URL
+    const url = new URL(window.location);
+    url.searchParams.delete("game");
+    window.history.replaceState({}, "", url);
+  }, []);
+
   const [confirmStart, setConfirmStart] = useState(false);
   // Reset confirm when entering a new ready phase
   const readyMoveCount = gameState?.handPhase === "ready" ? gameState.moveCount : null;
@@ -1255,20 +1292,20 @@ function GameInner({ lang, setLang }) {
         <div className="flex-1 flex flex-col justify-between px-2 sm:px-4 min-w-0">
 
           {/* Opponent hand + pile row */}
-          <div className="flex items-center justify-center gap-3 py-2">
+          <div className="flex items-center justify-center gap-2 py-2 pr-14">
             <div className="flex flex-col items-center flex-shrink-0">
               <span className="text-green-300/70 text-[10px] font-semibold mb-0.5">{t.oppPile}</span>
-              <div className={`relative w-12 h-[4.2rem] ${opScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={opScorePile.length}>
+              <div className={`relative w-10 h-[3.5rem] ${opScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={opScorePile.length}>
                 {opScorePile.length > 0 ? (
                   <>
-                    {Array.from({ length: Math.min(opScorePile.length, 6) }).map((_, i) => (
-                      <div key={`ops-${i}`} className="absolute w-12 h-[4.2rem] rounded-md border border-gray-600 shadow-sm"
-                        style={{ background: CARD_BACK, top: -i * 1.5, left: i * 0.8 }} />
+                    {Array.from({ length: Math.min(opScorePile.length, 4) }).map((_, i) => (
+                      <div key={`ops-${i}`} className="absolute w-10 h-[3.5rem] rounded-md border border-gray-600 shadow-sm"
+                        style={{ background: CARD_BACK, top: -i * 1.5, left: i * 0.5 }} />
                     ))}
-                    <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-black/80 text-amber-200 text-xs font-bold px-1.5 py-0.5 rounded-full z-10">{opScorePile.length}</span>
+                    <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-black/80 text-amber-200 text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10">{opScorePile.length}</span>
                   </>
                 ) : (
-                  <div className="w-12 h-[4.2rem] rounded-md border border-dashed border-green-800/25" />
+                  <div className="w-10 h-[3.5rem] rounded-md border border-dashed border-green-800/25" />
                 )}
               </div>
             </div>
@@ -1363,10 +1400,27 @@ function GameInner({ lang, setLang }) {
             )}
           </div>
 
-          {/* My hand + pile row */}
-          <div className="mt-auto">
-            <div className="flex items-end justify-center gap-3 py-2">
-              <div className="flex items-end justify-center gap-1 sm:gap-2 hand-fan">
+          {/* My hand + actions area */}
+          <div className="mt-auto pb-2">
+            {/* Action buttons row — above hand, clear of chat icon */}
+            <div className="flex justify-center gap-3 pb-1.5 pr-14">
+              {canDouble && isPlaying && !doublingWaiting && (
+                <button onClick={proposeDouble} className="px-5 py-2 rounded-xl font-bold text-sm bg-red-800/80 hover:bg-red-700 text-white transition-all duration-200 shadow-lg border border-red-600/30 hover:scale-105 active:scale-95">
+                  {nextStakeLabel(gameState?.stakeLevel || 0)}
+                </button>
+              )}
+              {isMyTurn && isPlaying && !gameState?.doublingPhase && (
+                <button onClick={playCards} disabled={!canPlay}
+                  className={`px-8 py-2 rounded-xl font-semibold text-sm transition-all duration-200 shadow-lg ${canPlay ? "bg-amber-600 hover:bg-amber-500 hover:scale-105 active:scale-95 text-white" : "bg-gray-700/50 text-gray-500 cursor-not-allowed"}`}>
+                  {gameState?.leadPhase
+                    ? `${t.play} ${selectedCards.length || "?"} ${selectedCards.length !== 1 ? t.cards : t.card}`
+                    : `${t.respondWith} ${selectedCards.length}/${reqResp}`}
+                </button>
+              )}
+            </div>
+            {/* Hand + pile row */}
+            <div className="flex items-end justify-center gap-2 pr-14">
+              <div className="flex items-end justify-center gap-1 sm:gap-2 hand-fan min-w-0">
                 {myHand.map((c, i) => {
                   const isNew = newMyCards.includes(c);
                   return (
@@ -1377,37 +1431,22 @@ function GameInner({ lang, setLang }) {
                   );
                 })}
               </div>
-              <div className="flex flex-col items-center flex-shrink-0 ml-1">
+              <div className="flex flex-col items-center flex-shrink-0">
                 <span className="text-green-300/70 text-[10px] font-semibold mb-0.5">{t.yourPile}</span>
-                <div className={`relative w-12 h-[4.2rem] ${myScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={myScorePile.length}>
+                <div className={`relative w-10 h-[3.5rem] ${myScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={myScorePile.length}>
                   {myScorePile.length > 0 ? (
                     <>
-                      {Array.from({ length: Math.min(myScorePile.length, 6) }).map((_, i) => (
-                        <div key={`mps-${i}`} className="absolute w-12 h-[4.2rem] rounded-md border border-gray-600 shadow-sm"
-                          style={{ background: CARD_BACK, top: -i * 1.5, left: i * 0.8 }} />
+                      {Array.from({ length: Math.min(myScorePile.length, 4) }).map((_, i) => (
+                        <div key={`mps-${i}`} className="absolute w-10 h-[3.5rem] rounded-md border border-gray-600 shadow-sm"
+                          style={{ background: CARD_BACK, top: -i * 1.5, left: i * 0.5 }} />
                       ))}
-                      <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-black/80 text-amber-200 text-xs font-bold px-1.5 py-0.5 rounded-full z-10">{myScorePile.length}</span>
+                      <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-black/80 text-amber-200 text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10">{myScorePile.length}</span>
                     </>
                   ) : (
-                    <div className="w-12 h-[4.2rem] rounded-md border border-dashed border-green-800/25" />
+                    <div className="w-10 h-[3.5rem] rounded-md border border-dashed border-green-800/25" />
                   )}
                 </div>
               </div>
-            </div>
-            <div className="flex justify-center gap-3 pb-2">
-              {canDouble && isPlaying && !doublingWaiting && (
-                <button onClick={proposeDouble} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-red-800/80 hover:bg-red-700 text-white transition-all duration-200 shadow-lg border border-red-600/30 hover:scale-105 active:scale-95">
-                  {nextStakeLabel(gameState?.stakeLevel || 0)}
-                </button>
-              )}
-              {isMyTurn && isPlaying && !gameState?.doublingPhase && (
-                <button onClick={playCards} disabled={!canPlay}
-                  className={`px-8 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 shadow-lg ${canPlay ? "bg-amber-600 hover:bg-amber-500 hover:scale-105 active:scale-95 text-white" : "bg-gray-700/50 text-gray-500 cursor-not-allowed"}`}>
-                  {gameState?.leadPhase
-                    ? `${t.play} ${selectedCards.length || "?"} ${selectedCards.length !== 1 ? t.cards : t.card}`
-                    : `${t.respondWith} ${selectedCards.length}/${reqResp}`}
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -1547,7 +1586,10 @@ function GameInner({ lang, setLang }) {
               <p className="text-3xl font-bold text-amber-200">{gameState.matchScores[playerIdx]} — {gameState.matchScores[1 - playerIdx]}</p>
               <p className="text-green-400/60 text-xs mt-1">{t.playingTo(gameState.playTo)}</p>
             </div>
-            <button onClick={newMatch} className="w-full py-3 bg-amber-700 hover:bg-amber-600 text-white font-semibold rounded-xl transition-colors shadow-lg">{t.newMatch}</button>
+            <div className="flex flex-col gap-2">
+              <button onClick={newMatch} className="w-full py-3 bg-amber-700 hover:bg-amber-600 text-white font-semibold rounded-xl transition-colors shadow-lg">{t.newMatch}</button>
+              <button onClick={backToMenu} className="w-full py-2 bg-black/30 hover:bg-black/50 text-green-300/80 text-sm font-semibold rounded-xl transition-colors border border-green-800/40">{t.backToMenu}</button>
+            </div>
           </div>
         </div>
       )}
