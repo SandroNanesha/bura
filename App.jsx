@@ -914,7 +914,8 @@ function GameInner({ lang, setLang }) {
       const dealerIdx = gameState.dealer;
       const firstIdx = 1 - dealerIdx;
       const sequence = [];
-      for (let i = 0; i < 3; i++) {
+      const h = gameState.handSize || 3;
+      for (let i = 0; i < h; i++) {
         sequence.push({ target: firstIdx, cardIdx: i });
         sequence.push({ target: 1 - firstIdx, cardIdx: i });
       }
