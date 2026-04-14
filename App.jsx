@@ -413,14 +413,14 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
   const sendMessage = useCallback(async () => {
     if (!msg.trim() || !gameId || playerIdx === null) return;
     const newMsg = { from: playerIdx, text: msg.trim(), ts: Date.now() };
-    const newState = {
-      ...gameState,
-      chat: [...(gameState.chat || []), newMsg],
-    };
-    setGameState(newState);
-    saveGameState(gameId, newState);
+    // Read fresh state to avoid overwriting game moves
+    const fresh = await loadGameState(gameId);
+    if (!fresh) return;
+    fresh.chat = [...(fresh.chat || []), newMsg];
+    setGameState(fresh);
+    saveGameState(gameId, fresh);
     setMsg("");
-  }, [msg, gameId, playerIdx, gameState, setGameState]);
+  }, [msg, gameId, playerIdx, setGameState]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
@@ -580,6 +580,10 @@ function GameInner({ lang, setLang }) {
   const [gameId, setGameId] = useState(getGameIdFromURL);
   const [playerIdx, setPlayerIdx] = useState(null);
   const [gameState, setGameState] = useState(null);
+  const gameStateRef = useRef(null);
+  // Keep ref in sync — always has the latest gameState
+  useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
+
   // If URL has ?game=, start in "welcome" (for guests) or "loading" (for creator)
   const [phase, setPhase] = useState(() => {
     if (!getGameIdFromURL()) return "menu";
@@ -745,7 +749,8 @@ function GameInner({ lang, setLang }) {
   const toggleCard = useCallback((card) => {
     setSelectedCards((prev) => {
       if (prev.includes(card)) return prev.filter((c) => c !== card);
-      if (prev.length >= (gameState?.handSize || 3)) return prev;
+      const maxCards = gameStateRef.current?.handSize || 3;
+      if (prev.length >= maxCards) return prev;
       if (leadPhaseRef.current && prev.length > 0 && cardSuit(card) !== cardSuit(prev[0])) return prev;
       return [...prev, card];
     });
@@ -772,28 +777,30 @@ function GameInner({ lang, setLang }) {
   }, []);
 
   const startNextHand = useCallback(async () => {
-    if (!gameState || !gameId) return;
-    const newDealer = gameState.handWinner === -1 ? gameState.dealer : gameState.handWinner;
-    const hand = initHandState(Math.floor(Math.random() * 2147483647), newDealer, gameState.handSize || 3);
+    const gs = gameStateRef.current;
+    if (!gs || !gameId) return;
+    const newDealer = gs.handWinner === -1 ? gs.dealer : gs.handWinner;
+    const hand = initHandState(Math.floor(Math.random() * 2147483647), newDealer, gs.handSize || 3);
     const newState = {
-      ...gameState, ...hand,
+      ...gs, ...hand,
       phase: "playing",
-      handPhase: "ready", // waiting for both players to press start
+      handPhase: "ready",
       playersReady: [false, false],
       lastActivity: [Date.now(), Date.now()],
     };
     setGameState(newState); setSelectedCards([]); setPhase("playing");
     saveGameState(gameId, newState);
-  }, [gameState, gameId]);
+  }, [gameId]);
 
   const playCards = useCallback(async () => {
-    if (!gameState || playerIdx === null || selectedCards.length === 0 || gameState.doublingPhase) return;
+    const gs = gameStateRef.current;
+    if (!gs || playerIdx === null || selectedCards.length === 0 || gs.doublingPhase) return;
     const state = {
-      ...gameState,
-      hands: gameState.hands.map(h => [...h]),
-      stock: [...gameState.stock],
-      scorePiles: gameState.scorePiles.map(p => [...p]),
-      matchScores: [...gameState.matchScores],
+      ...gs,
+      hands: gs.hands.map(h => [...h]),
+      stock: [...gs.stock],
+      scorePiles: gs.scorePiles.map(p => [...p]),
+      matchScores: [...gs.matchScores],
     };
     const myIdx = playerIdx;
     if (state.turn !== myIdx) { setStatusMsg(t.notYourTurn); setTimeout(() => setStatusMsg(""), 2000); return; }
@@ -858,29 +865,32 @@ function GameInner({ lang, setLang }) {
     }
     setSelectedCards([]); setGameState(state);
     saveGameState(gameId, state); // fire-and-forget — no await
-  }, [gameState, playerIdx, selectedCards, gameId, checkSpecials, awardHandPoints, t]);
+  }, [playerIdx, selectedCards, gameId, checkSpecials, awardHandPoints, t]);
 
   // ── Resolve trick showdown after delay ──
   const resolveTrickShowdown = useCallback(async () => {
-    if (!gameState || !gameId || !gameState.trickShowdown) return;
-    const sd = gameState.trickShowdown;
+    const gs = gameStateRef.current;
+    if (!gs || !gameId || !gs.trickShowdown) return;
+    const sd = gs.trickShowdown;
 
     // Start collect animation
     setCollectingTrick({ lead: sd.lead, response: sd.response, leaderIdx: sd.leaderIdx, winner: sd.winner });
 
     // Clear showdown immediately so it stops rendering
-    const preState = { ...gameState, trickShowdown: null };
+    const preState = { ...gs, trickShowdown: null };
     setGameState(preState);
 
-    // After collect animation, resolve the trick
+    // After collect animation, resolve the trick using fresh state
     setTimeout(() => {
       setCollectingTrick(null);
+      const latest = gameStateRef.current || preState;
       const state = {
-        ...preState,
-        hands: preState.hands.map(h => [...h]),
-        stock: [...preState.stock],
-        scorePiles: preState.scorePiles.map(p => [...p]),
-        matchScores: [...preState.matchScores],
+        ...latest,
+        hands: (latest.hands || preState.hands).map(h => [...h]),
+        stock: [...(latest.stock || preState.stock)],
+        scorePiles: (latest.scorePiles || preState.scorePiles).map(p => [...p]),
+        matchScores: [...(latest.matchScores || preState.matchScores)],
+        trickShowdown: null,
       };
 
       state.lastTrick = { lead: sd.lead, response: sd.response, leaderIdx: sd.leaderIdx, winner: sd.winner };
@@ -904,7 +914,7 @@ function GameInner({ lang, setLang }) {
       setGameState(state);
       saveGameState(gameId, state);
     }, 1000);
-  }, [gameState, gameId, checkSpecials, awardHandPoints, t]);
+  }, [gameId, checkSpecials, awardHandPoints, t]);
 
   // Auto-resolve showdown after timer
   useEffect(() => {
@@ -965,8 +975,9 @@ function GameInner({ lang, setLang }) {
   }, [gameState?.handPhase, playerIdx]);
 
   const claim31 = useCallback(async () => {
-    if (!gameState || playerIdx === null) return;
-    const state = { ...gameState, matchScores: [...gameState.matchScores] };
+    const gs = gameStateRef.current;
+    if (!gs || playerIdx === null) return;
+    const state = { ...gs, matchScores: [...gs.matchScores] };
     const pts = pilePoints(state.scorePiles[playerIdx]);
     state.handPhase = "handover";
     if (pts >= 31) { state.handWinner = playerIdx; state.handWinReason = t.claimed31had(pts); }
@@ -974,7 +985,7 @@ function GameInner({ lang, setLang }) {
     awardHandPoints(state, state.handWinner);
     state.moveCount++;
     setGameState(state); saveGameState(gameId, state);
-  }, [gameState, playerIdx, gameId, awardHandPoints, t]);
+  }, [playerIdx, gameId, awardHandPoints, t]);
 
   const canDouble = useMemo(() => {
     if (!gameState || playerIdx === null) return false;
@@ -987,25 +998,25 @@ function GameInner({ lang, setLang }) {
   }, [gameState, playerIdx]);
 
   const proposeDouble = useCallback(async () => {
-    if (!canDouble || !gameState || playerIdx === null) return;
-    const state = { ...gameState, matchScores: [...gameState.matchScores] };
+    const gs = gameStateRef.current;
+    if (!canDouble || !gs || playerIdx === null) return;
+    const state = { ...gs, matchScores: [...gs.matchScores] };
     state.doublingPhase = { proposer: playerIdx, proposedLevel: state.stakeLevel + 1 };
     state.moveCount++; state.lastActivity[playerIdx] = Date.now();
     setGameState(state); saveGameState(gameId, state);
-  }, [canDouble, gameState, playerIdx, gameId]);
+  }, [canDouble, playerIdx, gameId]);
 
   const respondToDouble = useCallback(async (accept) => {
-    if (!gameState || playerIdx === null || !gameState.doublingPhase) return;
-    const { proposer, proposedLevel } = gameState.doublingPhase;
-    // Only the non-proposer can respond
+    const gs = gameStateRef.current;
+    if (!gs || playerIdx === null || !gs.doublingPhase) return;
+    const { proposer, proposedLevel } = gs.doublingPhase;
     if (proposer === playerIdx) return;
-    // Re-read fresh state to avoid stale closure issues
+    // Re-read fresh state from server
     const fresh = await loadGameState(gameId);
-    if (!fresh || !fresh.doublingPhase) return; // already resolved
+    if (!fresh || !fresh.doublingPhase) return;
     const state = { ...fresh, matchScores: [...fresh.matchScores] };
     if (accept) {
       state.stakeLevel = proposedLevel;
-      // After accepting, the ACCEPTOR gets next doubling rights
       state.doublingRights = playerIdx;
       state.doublingPhase = null;
     } else {
@@ -1016,22 +1027,23 @@ function GameInner({ lang, setLang }) {
     }
     state.moveCount++; state.lastActivity[playerIdx] = Date.now();
     setGameState(state); saveGameState(gameId, state);
-  }, [gameState, playerIdx, gameId, awardHandPoints, t]);
+  }, [playerIdx, gameId, awardHandPoints, t]);
 
   const newMatch = useCallback(async () => {
     if (!gameId) return;
+    const gs = gameStateRef.current;
     const state = {
-      ...initMatchState(Math.floor(Math.random() * 2147483647), gameState?.playTo || 11, 0, gameState?.handSize || 3),
+      ...initMatchState(Math.floor(Math.random() * 2147483647), gs?.playTo || 11, 0, gs?.handSize || 3),
       phase: "playing", players: 2,
       handPhase: "ready",
       playersReady: [false, false],
       isNewMatch: true,
       lastActivity: [Date.now(), Date.now()],
-      tabIds: gameState?.tabIds || [null, null],
+      tabIds: gs?.tabIds || [null, null],
     };
     setGameState(state); setSelectedCards([]); setPhase("playing");
     saveGameState(gameId, state);
-  }, [gameId, gameState]);
+  }, [gameId]);
 
   const backToMenu = useCallback(() => {
     if (unsubRef.current) unsubRef.current();
@@ -1048,8 +1060,10 @@ function GameInner({ lang, setLang }) {
   }, []);
 
   const pressReady = useCallback(async () => {
-    if (!gameState || playerIdx === null || !gameId) return;
-    const state = { ...gameState, playersReady: [...(gameState.playersReady || [false, false])] };
+    // Read fresh from server to avoid race with opponent's ready press
+    const fresh = await loadGameState(gameId);
+    if (!fresh || playerIdx === null || !gameId) return;
+    const state = { ...fresh, playersReady: [...(fresh.playersReady || [false, false])] };
     state.playersReady[playerIdx] = true;
     if (state.playersReady[0] && state.playersReady[1]) {
       state.handPhase = "playing";
@@ -1059,7 +1073,7 @@ function GameInner({ lang, setLang }) {
     state.lastActivity[playerIdx] = Date.now();
     setGameState(state);
     saveGameState(gameId, state);
-  }, [gameState, playerIdx, gameId]);
+  }, [playerIdx, gameId]);
 
   const shareURL = useMemo(() => {
     if (!gameId) return "";
