@@ -1157,51 +1157,42 @@ function GameInner({ lang, setLang }) {
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden" style={TABLE_BG}>
       {/* ── Header ── */}
-      <div className="flex items-center justify-between px-3 py-2 bg-black/50 border-b border-green-900/40 z-10">
-        {/* Left: score */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1">
-            <span className="text-amber-200 font-bold text-sm">{t.title}</span>
-            <span className="text-green-700 text-[10px]">#{gameId}</span>
+      <div className="flex items-center justify-between px-2 sm:px-3 py-1.5 bg-black/50 border-b border-green-900/40 z-10 gap-1.5">
+        {/* Score */}
+        <div className="flex items-center bg-black/40 rounded-lg px-3 py-1.5 gap-3 flex-shrink-0">
+          <div className="flex flex-col items-center leading-none">
+            <span className="text-[10px] text-green-400/60">{t.you}</span>
+            <span className="text-xl font-bold text-amber-300">{myMatchScore}</span>
           </div>
-          <div className="flex items-center bg-black/40 rounded-lg px-2.5 py-1 gap-2">
-            <div className="flex flex-col items-center leading-none">
-              <span className="text-[10px] text-green-400/60">{t.you}</span>
-              <span className="text-lg font-bold text-amber-300">{myMatchScore}</span>
-            </div>
-            <div className="flex flex-col items-center leading-none">
-              <span className="text-[10px] text-green-400/40">/{gameState?.playTo}</span>
-              <span className="text-green-600 text-xs font-bold">vs</span>
-            </div>
-            <div className="flex flex-col items-center leading-none">
-              <span className="text-[10px] text-green-400/60">{t.opp}</span>
-              <span className="text-lg font-bold text-green-300">{opMatchScore}</span>
-            </div>
+          <div className="flex flex-col items-center leading-none">
+            <span className="text-[10px] text-green-400/40">/{gameState?.playTo}</span>
+            <span className="text-green-600 text-sm font-bold">vs</span>
+          </div>
+          <div className="flex flex-col items-center leading-none">
+            <span className="text-[10px] text-green-400/60">{t.opp}</span>
+            <span className="text-xl font-bold text-green-300">{opMatchScore}</span>
           </div>
         </div>
 
-        {/* Center: stake + turn */}
-        <div className="flex flex-col items-center gap-0.5">
+        {/* Turn + stake */}
+        <div className="flex flex-col items-center gap-0.5 flex-1 min-w-0">
           {gameState?.stakeLevel > 0 && (
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-700/80 text-white">
               {stakeDisplayName(gameState.stakeLevel, t)}
             </span>
           )}
           {isPlaying && !gameState?.doublingPhase && (
-            <span className={`text-xs font-bold px-3 py-0.5 rounded-full ${isMyTurn ? "bg-amber-600/80 text-white" : "bg-black/30 text-green-400/70"}`}>
+            <span className={`text-xs font-bold px-3 py-1 rounded-full text-center truncate max-w-full ${isMyTurn ? "bg-amber-600/80 text-white" : "bg-black/30 text-green-400/70"}`}>
               {isMyTurn ? (gameState?.leadPhase ? t.yourTurnLead : t.yourTurnRespond) : (gameState?.leadPhase ? t.oppTurnLead : t.oppResponding)}
             </span>
           )}
         </div>
 
-        {/* Right: status + actions */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <div className={`w-2 h-2 rounded-full ${opponentConnected ? "bg-green-400" : "bg-red-400 animate-pulse"}`} />
-            <span className={`text-[10px] ${opponentConnected ? "text-green-400" : "text-red-300"}`}>{opponentConnected ? t.online : t.offline}</span>
-          </div>
+        {/* Status + actions */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${opponentConnected ? "bg-green-400" : "bg-red-400 animate-pulse"}`} />
           {isPlaying && (
-            <button onClick={claim31} className="px-2 py-1 bg-red-700/80 hover:bg-red-600 text-white text-[10px] font-bold rounded-lg transition-colors leading-none">{t.claim31}</button>
+            <button onClick={claim31} className="px-2 py-1 bg-red-700/80 hover:bg-red-600 text-white text-[10px] font-bold rounded-lg transition-colors leading-none whitespace-nowrap">{t.claim31}</button>
           )}
           <LangToggle lang={lang} setLang={setLang} />
         </div>
@@ -1286,29 +1277,50 @@ function GameInner({ lang, setLang }) {
               </div>
             </div>
           )}
+          {/* Score piles */}
+          <div className="flex flex-col items-center gap-2 mt-1">
+            {/* My pile */}
+            <div className="flex flex-col items-center">
+              <span className="text-green-300/70 text-[10px] font-semibold mb-0.5">{t.yourPile}</span>
+              <div className={`relative w-10 h-[3rem] ${myScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={myScorePile.length}>
+                {myScorePile.length > 0 ? (
+                  <>
+                    {Array.from({ length: Math.min(myScorePile.length, 3) }).map((_, i) => (
+                      <div key={`mps-${i}`} className="absolute w-10 h-[3rem] rounded-md border border-gray-600 shadow-sm"
+                        style={{ background: CARD_BACK, top: -i * 1, left: i * 0.5 }} />
+                    ))}
+                    <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-black/80 text-amber-200 text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10">{myScorePile.length}</span>
+                  </>
+                ) : (
+                  <div className="w-10 h-[3rem] rounded-md border border-dashed border-green-800/25" />
+                )}
+              </div>
+            </div>
+            {/* Opp pile */}
+            <div className="flex flex-col items-center">
+              <span className="text-green-300/70 text-[10px] font-semibold mb-0.5">{t.oppPile}</span>
+              <div className={`relative w-10 h-[3rem] ${opScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={opScorePile.length}>
+                {opScorePile.length > 0 ? (
+                  <>
+                    {Array.from({ length: Math.min(opScorePile.length, 3) }).map((_, i) => (
+                      <div key={`ops-${i}`} className="absolute w-10 h-[3rem] rounded-md border border-gray-600 shadow-sm"
+                        style={{ background: CARD_BACK, top: -i * 1, left: i * 0.5 }} />
+                    ))}
+                    <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-black/80 text-amber-200 text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10">{opScorePile.length}</span>
+                  </>
+                ) : (
+                  <div className="w-10 h-[3rem] rounded-md border border-dashed border-green-800/25" />
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Center: Hands + Tricks + Piles */}
         <div className="flex-1 flex flex-col justify-between px-2 sm:px-4 min-w-0">
 
-          {/* Opponent hand + pile row */}
-          <div className="flex items-center justify-center gap-2 py-2 pr-14">
-            <div className="flex flex-col items-center flex-shrink-0">
-              <span className="text-green-300/70 text-[10px] font-semibold mb-0.5">{t.oppPile}</span>
-              <div className={`relative w-10 h-[3.5rem] ${opScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={opScorePile.length}>
-                {opScorePile.length > 0 ? (
-                  <>
-                    {Array.from({ length: Math.min(opScorePile.length, 4) }).map((_, i) => (
-                      <div key={`ops-${i}`} className="absolute w-10 h-[3.5rem] rounded-md border border-gray-600 shadow-sm"
-                        style={{ background: CARD_BACK, top: -i * 1.5, left: i * 0.5 }} />
-                    ))}
-                    <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-black/80 text-amber-200 text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10">{opScorePile.length}</span>
-                  </>
-                ) : (
-                  <div className="w-10 h-[3.5rem] rounded-md border border-dashed border-green-800/25" />
-                )}
-              </div>
-            </div>
+          {/* Opponent hand */}
+          <div className="flex items-center justify-center py-2">
             <div className="flex items-center gap-0.5">
               {opHand.map((_, i) => (
                 <div key={`op-${dealAnimKey}-${i}`} className="animate-slide-deal-opp" style={{ animationDelay: `${i * 200}ms` }}>
@@ -1402,8 +1414,8 @@ function GameInner({ lang, setLang }) {
 
           {/* My hand + actions area */}
           <div className="mt-auto pb-2">
-            {/* Action buttons row — above hand, clear of chat icon */}
-            <div className="flex justify-center gap-3 pb-1.5 pr-14">
+            {/* Action buttons row */}
+            <div className="flex justify-center gap-3 pb-1.5">
               {canDouble && isPlaying && !doublingWaiting && (
                 <button onClick={proposeDouble} className="px-5 py-2 rounded-xl font-bold text-sm bg-red-800/80 hover:bg-red-700 text-white transition-all duration-200 shadow-lg border border-red-600/30 hover:scale-105 active:scale-95">
                   {nextStakeLabel(gameState?.stakeLevel || 0)}
@@ -1418,35 +1430,17 @@ function GameInner({ lang, setLang }) {
                 </button>
               )}
             </div>
-            {/* Hand + pile row */}
-            <div className="flex items-end justify-center gap-2 pr-14">
-              <div className="flex items-end justify-center gap-1 sm:gap-2 hand-fan min-w-0">
-                {myHand.map((c, i) => {
-                  const isNew = newMyCards.includes(c);
-                  return (
-                    <div key={c} className={isNew ? "animate-slide-deal" : ""} style={isNew ? { animationDelay: `${i * 200}ms` } : {}}>
-                      <Card card={c} selected={selectedCards.includes(c)} onClick={() => toggleCard(c)}
-                        disabled={!isMyTurn || !isPlaying || !!gameState?.doublingPhase || inShowdown} />
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="flex flex-col items-center flex-shrink-0">
-                <span className="text-green-300/70 text-[10px] font-semibold mb-0.5">{t.yourPile}</span>
-                <div className={`relative w-10 h-[3.5rem] ${myScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={myScorePile.length}>
-                  {myScorePile.length > 0 ? (
-                    <>
-                      {Array.from({ length: Math.min(myScorePile.length, 4) }).map((_, i) => (
-                        <div key={`mps-${i}`} className="absolute w-10 h-[3.5rem] rounded-md border border-gray-600 shadow-sm"
-                          style={{ background: CARD_BACK, top: -i * 1.5, left: i * 0.5 }} />
-                      ))}
-                      <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-black/80 text-amber-200 text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10">{myScorePile.length}</span>
-                    </>
-                  ) : (
-                    <div className="w-10 h-[3.5rem] rounded-md border border-dashed border-green-800/25" />
-                  )}
-                </div>
-              </div>
+            {/* Hand row */}
+            <div className="flex items-end justify-center gap-1 sm:gap-2 hand-fan">
+              {myHand.map((c, i) => {
+                const isNew = newMyCards.includes(c);
+                return (
+                  <div key={c} className={isNew ? "animate-slide-deal" : ""} style={isNew ? { animationDelay: `${i * 200}ms` } : {}}>
+                    <Card card={c} selected={selectedCards.includes(c)} onClick={() => toggleCard(c)}
+                      disabled={!isMyTurn || !isPlaying || !!gameState?.doublingPhase || inShowdown} />
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
