@@ -30,10 +30,15 @@
     .bura-card-small  { --cw: 2.8rem; border-radius: 0.3rem; }
     .bura-card-medium { --cw: 3.4rem; border-radius: 0.4rem; }
     .bura-card-normal { --cw: 4.5rem; }
+    /* Smaller cards when 5-card hand to fit screen */
+    .hand-fan[data-count="4"] .bura-card-normal { --cw: 4rem; }
+    .hand-fan[data-count="5"] .bura-card-normal { --cw: 3.5rem; }
     @media (min-width: 640px) {
       .bura-card-normal { --cw: 5.2rem; }
       .bura-card-medium { --cw: 4.2rem; }
       .bura-card-small  { --cw: 3.2rem; }
+      .hand-fan[data-count="4"] .bura-card-normal { --cw: 4.6rem; }
+      .hand-fan[data-count="5"] .bura-card-normal { --cw: 4rem; }
     }
 
     /* ═══ Card back ═══ */
@@ -92,6 +97,11 @@
       rotate: var(--fan, 0deg);
       transition: rotate 0.35s ease, transform 0.35s ease;
     }
+    /* Overlap cards when 4 or 5 in hand */
+    .hand-fan[data-count="4"] > * { margin-left: -0.6rem; }
+    .hand-fan[data-count="4"] > *:first-child { margin-left: 0; }
+    .hand-fan[data-count="5"] > * { margin-left: -0.9rem; }
+    .hand-fan[data-count="5"] > *:first-child { margin-left: 0; }
 
     /* ═══ DEAL: cards fly from stock (left sidebar) into my hand ═══ */
     @keyframes deal-to-hand {

@@ -1310,10 +1310,10 @@ function GameInner({ lang, setLang }) {
               <span className="text-green-400/60 text-[9px]">{t.oppPile}</span>
               <span className="text-amber-200 text-[10px] font-bold">{opScorePile.length}</span>
             </div>
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center">
               {opHand.map((_, i) => (
-                <div key={`op-${dealAnimKey}-${i}`} className="animate-slide-deal-opp" style={{ animationDelay: `${i * 200}ms` }}>
-                  <Card faceDown size="small" style={{ marginLeft: i > 0 ? "-0.3rem" : 0 }} />
+                <div key={`op-${dealAnimKey}-${i}`} className="animate-slide-deal-opp" style={{ animationDelay: `${i * 200}ms`, marginLeft: i > 0 ? (opHand.length > 3 ? "-0.5rem" : "-0.2rem") : 0 }}>
+                  <Card faceDown size="small" />
                 </div>
               ))}
             </div>
@@ -1419,22 +1419,22 @@ function GameInner({ lang, setLang }) {
               })}
             </div>
           </div>
-          {/* Action buttons */}
+          {/* Action buttons — single row, no wrap */}
           {isPlaying && (
-            <div className="flex justify-center items-center gap-2 py-2 bg-black/40 border-t border-green-900/30 flex-wrap">
+            <div className="flex justify-center items-center gap-1.5 py-1.5 px-2 bg-black/40 border-t border-green-900/30">
               {myScorePile.length > 0 && (
-                <button onClick={claim31} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-red-700 hover:bg-red-600 text-white transition-all shadow-lg border border-red-500/40 animate-pulse">
+                <button onClick={claim31} className="px-3 py-2 rounded-lg font-bold text-xs bg-red-700 hover:bg-red-600 text-white transition-all shadow-lg border border-red-500/40 whitespace-nowrap">
                   {t.claim31}
                 </button>
               )}
               {isMyTurn && !gameState?.doublingPhase && canDouble && !doublingWaiting && (
-                <button onClick={proposeDouble} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-red-800/80 hover:bg-red-700 text-white transition-all shadow-lg border border-red-600/30">
+                <button onClick={proposeDouble} className="px-3 py-2 rounded-lg font-bold text-xs bg-red-800/80 hover:bg-red-700 text-white transition-all shadow border border-red-600/30 whitespace-nowrap">
                   {nextStakeLabel(gameState?.stakeLevel || 0)}
                 </button>
               )}
               {isMyTurn && !gameState?.doublingPhase && (
                 <button onClick={playCards} disabled={!canPlay}
-                  className={`px-7 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg ${canPlay ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-gray-700/50 text-gray-500 cursor-not-allowed"}`}>
+                  className={`px-4 py-2 rounded-lg font-semibold text-xs transition-all shadow whitespace-nowrap ${canPlay ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-gray-700/50 text-gray-500 cursor-not-allowed"}`}>
                   {gameState?.leadPhase
                     ? `${t.play} ${selectedCards.length || "?"} ${selectedCards.length !== 1 ? t.cards : t.card}`
                     : `${t.respondWith} ${selectedCards.length}/${reqResp}`}
