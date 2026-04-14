@@ -4,118 +4,155 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bura — Card Game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* ── Card base ── */
-    .game-card {
-      transition: rotate 0.2s ease-in-out, transform 0.25s ease-in-out, box-shadow 0.25s ease, filter 0.2s ease;
-      box-shadow:
-        0px 0px 2.2px rgba(0, 0, 0, 0.02),
-        0px 0px 5.3px rgba(0, 0, 0, 0.028),
-        0px 0px 10px rgba(0, 0, 0, 0.035),
-        0px 0px 17.9px rgba(0, 0, 0, 0.042),
-        0px 0px 33.4px rgba(0, 0, 0, 0.05),
-        0px 0px 80px rgba(0, 0, 0, 0.07);
+    * { font-family: "Space Grotesk", sans-serif; -webkit-user-select: none; user-select: none; }
+
+    /* ═══ Card sizing ═══ */
+    .bura-card {
+      --cw: 5rem;
+      position: relative;
+      width: var(--cw);
+      aspect-ratio: 2/3;
+      border-radius: 0.6rem;
+      border: solid 2px transparent;
+      overflow: hidden;
       cursor: pointer;
-      -webkit-user-select: none;
-      user-select: none;
-    }
-    .game-card:hover {
-      filter: brightness(1.05);
-    }
-    .game-card.card-selected {
+      transform-origin: 10% 90%;
+      transition: rotate 0.15s ease-in-out, transform 0.22s ease-in-out, border-color 0.15s, filter 0.15s, box-shadow 0.2s;
       box-shadow:
-        0 0 10px 2px rgba(250, 204, 21, 0.5),
-        0px 0px 20px rgba(250, 204, 21, 0.3);
+        0px 0px 2.2px rgba(0,0,0,0.02),
+        0px 0px 5.3px rgba(0,0,0,0.028),
+        0px 0px 10px rgba(0,0,0,0.035),
+        0px 0px 17.9px rgba(0,0,0,0.042),
+        0px 0px 33.4px rgba(0,0,0,0.05),
+        0px 0px 80px rgba(0,0,0,0.07);
+    }
+    .bura-card-small  { --cw: 3.2rem; border-radius: 0.4rem; }
+    .bura-card-medium { --cw: 4.2rem; border-radius: 0.5rem; }
+    .bura-card-normal { --cw: 5rem; }
+    @media (min-width: 640px) {
+      .bura-card-normal { --cw: 5.5rem; }
+      .bura-card-medium { --cw: 4.8rem; }
     }
 
-    /* ── Deal: slide from top-right with rotation ── */
+    /* ═══ Card back ═══ */
+    .card-back-inner {
+      position: absolute;
+      inset: 8%;
+      border-radius: 0.3rem;
+      border: 1.5px solid rgba(147, 197, 253, 0.2);
+    }
+
+    /* ═══ Card face ═══ */
+    .card-red  { color: #de4b4b; }
+    .card-black { color: #141414; }
+
+    .card-corner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: calc(var(--cw) * 0.06);
+      line-height: 1;
+    }
+    .card-corner-rank {
+      font-size: calc(var(--cw) * 0.32);
+      font-weight: 700;
+    }
+    .card-corner-suit {
+      font-size: calc(var(--cw) * 0.24);
+      margin-top: calc(var(--cw) * -0.02);
+    }
+    .card-center-suit {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: calc(var(--cw) * 0.9);
+      opacity: 0.15;
+      line-height: 1;
+      pointer-events: none;
+    }
+
+    /* ═══ Card states ═══ */
+    .card-selected {
+      border-color: #facc15 !important;
+      transform: translateY(-0.8rem) scale(1.06);
+      box-shadow:
+        0 0 12px 3px rgba(250, 204, 21, 0.45),
+        0 0 24px rgba(250, 204, 21, 0.2);
+    }
+    .card-clickable:hover {
+      filter: brightness(1.04);
+      transform: translateY(-0.5rem);
+    }
+    .card-clickable:active {
+      transform: scale(0.96);
+    }
+    .card-disabled {
+      opacity: 0.55;
+      cursor: default !important;
+    }
+
+    /* ═══ Hand fan ═══ */
+    .hand-fan { transform-origin: center bottom; }
+    .hand-fan > *:nth-child(1) { --fan: -10deg; }
+    .hand-fan > *:nth-child(2) { --fan: 0deg; }
+    .hand-fan > *:nth-child(3) { --fan: 10deg; }
+    .hand-fan > * {
+      transform-origin: center 140%;
+      rotate: var(--fan, 0deg);
+      transition: rotate 0.2s ease, transform 0.25s ease;
+    }
+    .hand-fan > *:hover ~ * { transform: rotate(8deg); }
+
+    /* ═══ Animations ═══ */
     @keyframes slide-deal {
-      0% {
-        opacity: 0;
-        transform: translateX(40vw) translateY(-30vh) rotate(35deg) scale(0.5);
-      }
-      40% { opacity: 1; }
-      75% {
-        transform: translateX(0) translateY(0) rotate(0) scale(1.03);
-      }
-      100% {
-        transform: translateX(0) translateY(0) rotate(0) scale(1);
-      }
+      0%   { opacity: 0; rotate: 35deg; transform: translateX(40vw) translateY(-30vh) scale(0.5); }
+      40%  { opacity: 1; }
+      75%  { transform: translateX(0) translateY(0) rotate(0) scale(1.02); }
+      100% { transform: translateX(0) translateY(0) rotate(0) scale(1); }
     }
-
-    /* ── Play card onto table: from bottom ── */
     @keyframes trick-enter {
-      0%   { opacity: 0; transform: translateY(80px) scale(0.5) rotateX(25deg); filter: blur(3px); }
-      50%  { opacity: 1; transform: translateY(-6px) scale(1.08) rotateX(-2deg); filter: blur(0); }
+      0%   { opacity: 0; transform: translateY(70px) scale(0.5) rotateX(25deg); filter: blur(3px); }
+      50%  { opacity: 1; transform: translateY(-5px) scale(1.07) rotateX(-2deg); filter: blur(0); }
       100% { opacity: 1; transform: translateY(0) scale(1) rotateX(0); }
     }
-
-    /* ── Play card onto table: from top (opponent) ── */
     @keyframes trick-enter-opp {
-      0%   { opacity: 0; transform: translateY(-80px) scale(0.5) rotateX(-25deg); filter: blur(3px); }
-      50%  { opacity: 1; transform: translateY(6px) scale(1.08) rotateX(2deg); filter: blur(0); }
+      0%   { opacity: 0; transform: translateY(-70px) scale(0.5) rotateX(-25deg); filter: blur(3px); }
+      50%  { opacity: 1; transform: translateY(5px) scale(1.07) rotateX(2deg); filter: blur(0); }
       100% { opacity: 1; transform: translateY(0) scale(1) rotateX(0); }
     }
-
-    /* ── Pile collect pulse ── */
     @keyframes pile-collect {
       0%   { transform: scale(1); }
-      40%  { transform: scale(1.25); }
+      40%  { transform: scale(1.2); }
       100% { transform: scale(1); }
     }
-
-    /* ── Showdown glow ── */
     @keyframes showdown-glow {
-      0%   { filter: brightness(1) drop-shadow(0 0 0 transparent); }
-      50%  { filter: brightness(1.15) drop-shadow(0 0 6px rgba(251, 191, 36, 0.4)); }
-      100% { filter: brightness(1) drop-shadow(0 0 0 transparent); }
+      0%   { filter: brightness(1); }
+      50%  { filter: brightness(1.2) drop-shadow(0 0 8px rgba(251,191,36,0.4)); }
+      100% { filter: brightness(1); }
     }
-
-    /* ── Winner badge bounce ── */
     @keyframes badge-bounce {
       0%   { opacity: 0; transform: translateX(-50%) scale(0.3) translateY(10px); }
       60%  { opacity: 1; transform: translateX(-50%) scale(1.15) translateY(-3px); }
       100% { opacity: 1; transform: translateX(-50%) scale(1) translateY(0); }
     }
 
-    .animate-slide-deal {
-      animation: slide-deal 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
-    }
-    .animate-trick-enter {
-      animation: trick-enter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-    }
-    .animate-trick-enter-opp {
-      animation: trick-enter-opp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-    }
-    .animate-pile-collect {
-      animation: pile-collect 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    .animate-showdown-glow {
-      animation: showdown-glow 1.2s ease-in-out infinite;
-    }
-    .animate-badge-bounce {
-      animation: badge-bounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-    }
+    .animate-slide-deal      { animation: slide-deal 0.7s cubic-bezier(0.22,1,0.36,1) both; }
+    .animate-trick-enter      { animation: trick-enter 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
+    .animate-trick-enter-opp  { animation: trick-enter-opp 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
+    .animate-pile-collect     { animation: pile-collect 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+    .animate-showdown-glow    { animation: showdown-glow 1.2s ease-in-out infinite; }
+    .animate-badge-bounce     { animation: badge-bounce 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
 
-    /* ── Trump card glow ── */
+    /* ═══ Trump glow ═══ */
     .trump-glow {
-      box-shadow: 0 0 18px 4px rgba(251, 191, 36, 0.35), 0 6px 20px rgba(0,0,0,0.4);
+      box-shadow: 0 0 18px 4px rgba(251,191,36,0.35), 0 6px 20px rgba(0,0,0,0.4);
       border-radius: 0.5rem;
-    }
-
-    /* ── Fan hand: slight rotation per card ── */
-    .hand-fan > *:nth-child(1) { --fan: -8deg; }
-    .hand-fan > *:nth-child(2) { --fan: 0deg; }
-    .hand-fan > *:nth-child(3) { --fan: 8deg; }
-    .hand-fan > * {
-      transform-origin: center 120%;
-      rotate: var(--fan, 0deg);
-      transition: rotate 0.2s ease, transform 0.25s ease;
-    }
-    .hand-fan > *:hover {
-      transform: translateY(-8px) scale(1.04);
-      z-index: 10;
     }
   </style>
 </head>

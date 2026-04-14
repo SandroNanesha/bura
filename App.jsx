@@ -335,37 +335,34 @@ async function loadGameState(gameId) {
 }
 
 // ─── Card Component ──────────────────────────────────────────────────────────
-const CARD_SIZES = {
-  small:  "w-12 h-[4.2rem] text-xs rounded-md",
-  medium: "w-16 h-[5.6rem] text-sm rounded-lg",
-  normal: "w-16 h-[5.6rem] sm:w-20 sm:h-28 text-sm sm:text-base rounded-lg",
-};
 const CARD_BACK = "repeating-linear-gradient(45deg, #1e3a5f, #1e3a5f 4px, #1a3355 4px, #1a3355 8px)";
 
 function Card({ card, faceDown, selected, onClick, size = "normal", disabled, style, className: extraCls = "" }) {
-  const sizeKey = size === true || size === "small" ? "small" : (size === "medium" ? "medium" : "normal");
-  const baseStyle = CARD_SIZES[sizeKey];
+  const sz = size === true || size === "small" ? "small" : (size === "medium" ? "medium" : "normal");
 
   if (faceDown) {
     return (
-      <div className={`${baseStyle} game-card flex items-center justify-center border-2 border-gray-600 flex-shrink-0 ${extraCls}`}
+      <div className={`bura-card bura-card-${sz} game-card flex-shrink-0 ${extraCls}`}
         style={{ background: CARD_BACK, ...style }}>
-        <div className="w-3/4 h-3/4 rounded border border-blue-300/30" />
+        <div className="card-back-inner" />
       </div>
     );
   }
 
   const rank = cardRank(card), suit = cardSuit(card), red = isRed(card);
+  const colorCls = red ? "card-red" : "card-black";
   return (
     <div onClick={disabled ? undefined : onClick}
-      className={`${baseStyle} game-card bg-white border-2 flex flex-col items-center justify-between p-1 sm:p-1.5 flex-shrink-0
-        ${selected ? "border-yellow-400 -translate-y-3 card-selected scale-105" : "border-gray-300"}
-        ${!disabled && onClick ? "hover:border-blue-400 active:scale-95" : "cursor-default"}
-        ${disabled ? "opacity-60 !cursor-default" : ""} ${extraCls}`}
+      className={`bura-card bura-card-${sz} game-card flex-shrink-0 bg-[#e8e4dc] ${colorCls}
+        ${selected ? "card-selected" : ""}
+        ${!disabled && onClick ? "card-clickable" : ""}
+        ${disabled ? "card-disabled" : ""} ${extraCls}`}
       style={style}>
-      <div className={`font-bold leading-none ${red ? "text-red-600" : "text-gray-900"}`}>{rank}</div>
-      <div className={`text-lg sm:text-2xl leading-none ${red ? "text-red-600" : "text-gray-900"}`}>{suit}</div>
-      <div className={`font-bold leading-none rotate-180 ${red ? "text-red-600" : "text-gray-900"}`}>{rank}</div>
+      <div className="card-corner">
+        <span className="card-corner-rank">{rank}</span>
+        <span className="card-corner-suit">{suit}</span>
+      </div>
+      <div className="card-center-suit">{suit}</div>
     </div>
   );
 }
