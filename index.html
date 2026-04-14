@@ -11,12 +11,9 @@
   <style>
     * { font-family: "Space Grotesk", sans-serif; -webkit-user-select: none; user-select: none; }
 
-    /* ═══ Safe area for iOS browser bars ═══ */
-    html { padding-bottom: env(safe-area-inset-bottom, 0); }
-
     /* ═══ Card sizing ═══ */
     .bura-card {
-      --cw: 3.8rem;
+      --cw: 4.5rem;
       position: relative;
       width: var(--cw);
       aspect-ratio: 2/3;
@@ -28,11 +25,11 @@
       transition: transform 0.35s ease, border-color 0.25s ease, filter 0.25s ease, box-shadow 0.3s ease;
       box-shadow: 1px 1px 5px 1px rgba(150, 150, 150, 0.15);
     }
-    .bura-card-small  { --cw: 2.6rem; border-radius: 0.3rem; }
-    .bura-card-medium { --cw: 3.2rem; border-radius: 0.4rem; }
-    .bura-card-normal { --cw: 3.8rem; }
+    .bura-card-small  { --cw: 2.8rem; border-radius: 0.3rem; }
+    .bura-card-medium { --cw: 3.4rem; border-radius: 0.4rem; }
+    .bura-card-normal { --cw: 4.5rem; }
     @media (min-width: 640px) {
-      .bura-card-normal { --cw: 5rem; }
+      .bura-card-normal { --cw: 5.2rem; }
       .bura-card-medium { --cw: 4.2rem; }
       .bura-card-small  { --cw: 3.2rem; }
     }

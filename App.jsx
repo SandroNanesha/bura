@@ -414,7 +414,7 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
   return (
     <>
       {/* Toast banners for incoming messages */}
-      <div className="fixed right-2 z-50 flex flex-col gap-2 pointer-events-none" style={{ bottom: "max(7rem, calc(7rem + env(safe-area-inset-bottom)))" }}>
+      <div className="fixed right-3 z-50 flex flex-col gap-2 pointer-events-none" style={{ bottom: "max(8rem, calc(8rem + env(safe-area-inset-bottom, 0px)))" }}>
         {toasts.map(toast => (
           <div key={toast.id} className="bg-black/80 text-white text-sm px-4 py-2 rounded-xl shadow-lg backdrop-blur-sm border border-green-800/40 max-w-[16rem] animate-toast-in pointer-events-auto"
             onClick={() => { setOpen(true); setToasts(prev => prev.filter(t => t.id !== toast.id)); }}>
@@ -427,8 +427,8 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
       {/* Chat toggle button */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="fixed right-2 z-40 w-9 h-9 rounded-full bg-green-800 hover:bg-green-700 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 border border-green-600/30"
-        style={{ bottom: "max(4.5rem, calc(4.5rem + env(safe-area-inset-bottom)))" }}
+        className="fixed right-3 z-40 w-9 h-9 rounded-full bg-green-800/90 hover:bg-green-700 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 border border-green-600/30"
+        style={{ bottom: "max(5rem, calc(5rem + env(safe-area-inset-bottom, 0px)))" }}
       >
         {open ? (
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -444,7 +444,7 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed right-2 z-50 w-64 sm:w-72 bg-gray-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-green-800/40 flex flex-col overflow-hidden animate-chat-open" style={{ bottom: "max(7rem, calc(7rem + env(safe-area-inset-bottom)))", maxHeight: "18rem" }}>
+        <div className="fixed right-3 left-20 sm:left-auto sm:w-72 z-50 bg-gray-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-green-800/40 flex flex-col overflow-hidden animate-chat-open" style={{ bottom: "max(8rem, calc(8rem + env(safe-area-inset-bottom, 0px)))", maxHeight: "16rem" }}>
           {/* Header */}
           <div className="px-4 py-2.5 bg-black/40 border-b border-green-800/30 flex items-center justify-between">
             <span className="text-amber-200 font-bold text-sm">{t.chat}</span>
@@ -474,7 +474,7 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
           </div>
 
           {/* Input */}
-          <div className="px-3 py-2 bg-black/30 border-t border-green-800/30 flex gap-2">
+          <div className="px-2 py-1.5 bg-black/30 border-t border-green-800/30 flex gap-1.5">
             <input
               type="text"
               value={msg}
@@ -482,12 +482,12 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
               onKeyDown={handleKeyDown}
               placeholder={t.typeMessage}
               maxLength={200}
-              className="flex-1 bg-gray-800/80 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600/50 placeholder:text-gray-500"
+              className="flex-1 min-w-0 bg-gray-800/80 text-white text-xs rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-green-600/50 placeholder:text-gray-500"
             />
             <button
               onClick={sendMessage}
               disabled={!msg.trim()}
-              className="px-3 py-2 bg-green-700 hover:bg-green-600 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm font-semibold rounded-lg transition-colors"
+              className="px-2 py-1.5 bg-green-700 hover:bg-green-600 disabled:bg-gray-700 disabled:text-gray-500 text-white text-xs font-semibold rounded-lg transition-colors flex-shrink-0"
             >
               {t.send}
             </button>
@@ -1241,7 +1241,7 @@ function GameInner({ lang, setLang }) {
       )}
 
       {/* Main game area — sidebar + center */}
-      <div className="flex-1 flex pb-2 overflow-hidden">
+      <div className="flex-1 flex overflow-hidden" style={{ paddingBottom: "max(0.5rem, calc(3.5rem + env(safe-area-inset-bottom, 0px)))" }}>
 
         {/* Left sidebar: Trump + Stock */}
         <div className="flex flex-col items-center justify-center gap-3 px-1 sm:px-3 py-2 border-r border-green-900/30 bg-black/15 flex-shrink-0 w-16 sm:w-28">
@@ -1383,9 +1383,9 @@ function GameInner({ lang, setLang }) {
 
           {/* My pile badge + hand */}
           <div className="mt-auto">
-            <div className={`flex items-center justify-center gap-1.5 mb-0.5 ${myScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={myScorePile.length}>
-              <span className="text-green-400/60 text-[9px]">{t.yourPile}</span>
-              <span className="text-amber-200 text-[10px] font-bold bg-black/30 px-1.5 py-0.5 rounded-md">{myScorePile.length}</span>
+            <div className={`flex items-center justify-center gap-1.5 mb-1 ${myScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={myScorePile.length}>
+              <span className="text-green-300/70 text-xs font-semibold">{t.yourPile}</span>
+              <span className="text-amber-200 text-sm font-bold bg-black/40 px-2 py-0.5 rounded-lg">{myScorePile.length}</span>
             </div>
             <div className="flex items-end justify-center gap-1 sm:gap-2 hand-fan">
               {myHand.map((c, i) => {
@@ -1399,9 +1399,9 @@ function GameInner({ lang, setLang }) {
               })}
             </div>
           </div>
-          {/* Action buttons — bottom strip with safe area padding */}
+          {/* Action buttons — inside center column, above safe area */}
           {(isMyTurn && isPlaying && !gameState?.doublingPhase) && (
-            <div className="flex justify-center gap-3 py-2 bg-black/40 border-t border-green-900/30" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
+            <div className="flex justify-center gap-3 py-1.5 bg-black/40 border-t border-green-900/30">
               {canDouble && !doublingWaiting && (
                 <button onClick={proposeDouble} className="px-4 py-1.5 rounded-lg font-bold text-xs bg-red-800/80 hover:bg-red-700 text-white transition-all shadow border border-red-600/30">
                   {nextStakeLabel(gameState?.stakeLevel || 0)}
