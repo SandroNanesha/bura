@@ -77,6 +77,7 @@ const STRINGS = {
     newMatchReady: "New Match!",
     pressStart: "Press Start when ready",
     start: "Start",
+    confirmStart: "Confirm?",
     waitingForBoth: "Waiting for both players\u2026",
     yourPile: "Your Pile",
     oppPile: "Opp Pile",
@@ -156,6 +157,7 @@ const STRINGS = {
     newMatchReady: "\u10D0\u10EE\u10D0\u10DA\u10D8 \u10DB\u10D0\u10E2\u10E9\u10D8!",
     pressStart: "\u10D3\u10D0\u10D0\u10ED\u10D8\u10E0\u10D4\u10D7 \u10D3\u10D0\u10EC\u10E7\u10D4\u10D1\u10D0\u10E1",
     start: "\u10D3\u10D0\u10EC\u10E7\u10D4\u10D1\u10D0",
+    confirmStart: "\u10D3\u10D0\u10D3\u10D0\u10E1\u10E2\u10E3\u10E0\u10D4\u10D1\u10D0?",
     waitingForBoth: "\u10DD\u10E0\u10D8\u10D5\u10D4 \u10DB\u10DD\u10D7\u10D0\u10DB\u10D0\u10E8\u10D4\u10E1 \u10D4\u10DA\u10DD\u10D3\u10D4\u10D1\u10D0\u2026",
     yourPile: "\u10E8\u10D4\u10DC\u10D8",
     oppPile: "\u10DB\u10DD\u10EC",
@@ -537,7 +539,7 @@ function GameInner({ lang, setLang }) {
       lastActivity: [Date.now(), Date.now()],
     };
     setGameState(newState); setSelectedCards([]); setPhase("playing");
-    await saveGameState(gameId, newState);
+    saveGameState(gameId, newState);
   }, [gameState, gameId]);
 
   const playCards = useCallback(async () => {
@@ -569,19 +571,39 @@ function GameInner({ lang, setLang }) {
       const leaderIdx = state.currentTrick.leaderIdx;
       const tr = resolveTrick(state.currentTrick.lead, state.currentTrick.response, state.trumpSuit);
       const tw = tr === 0 ? leaderIdx : 1 - leaderIdx;
+      const responderWon = tw !== leaderIdx; // responder beat the lead
 
-      // Enter showdown: keep trick visible for both players before resolving
-      state.trickShowdown = {
-        lead: state.currentTrick.lead,
-        response: state.currentTrick.response,
-        leaderIdx,
-        winner: tw,
-        resolveAt: Date.now() + 2500,
-      };
+      if (responderWon) {
+        // Showdown: responder beat the cards — show for 4 seconds
+        state.trickShowdown = {
+          lead: state.currentTrick.lead,
+          response: state.currentTrick.response,
+          leaderIdx,
+          winner: tw,
+          resolveAt: Date.now() + 4000,
+        };
+      } else {
+        // Leader wins (responder couldn't beat) — resolve immediately, no showdown
+        state.lastTrick = { lead: state.currentTrick.lead, response: state.currentTrick.response, leaderIdx, winner: tw };
+        state.scorePiles[tw] = [...state.scorePiles[tw], ...state.currentTrick.lead, ...state.currentTrick.response];
+        state.turn = tw;
+        state.currentTrick = { lead: [], response: [], leaderIdx: null };
+        replenishHands(state);
+        const go = checkSpecials(state, t);
+        if (go) { awardHandPoints(state, state.handWinner); }
+        else if (state.hands[0].length === 0 && state.hands[1].length === 0) {
+          const p0 = pilePoints(state.scorePiles[0]), p1 = pilePoints(state.scorePiles[1]);
+          state.handPhase = "handover";
+          if (p0 > p1) { state.handWinner = 0; state.handWinReason = t.winsWithPts(p0, p1); }
+          else if (p1 > p0) { state.handWinner = 1; state.handWinReason = t.winsWithPts(p1, p0); }
+          else { state.handWinner = -1; state.handWinReason = t.drawRedeal; }
+          awardHandPoints(state, state.handWinner);
+        } else { state.leadPhase = true; }
+      }
       state.moveCount++; state.lastActivity[myIdx] = Date.now();
     }
     setSelectedCards([]); setGameState(state);
-    await saveGameState(gameId, state);
+    saveGameState(gameId, state); // fire-and-forget — no await
   }, [gameState, playerIdx, selectedCards, gameId, checkSpecials, awardHandPoints, t]);
 
   // ── Resolve trick showdown after delay ──
@@ -616,7 +638,7 @@ function GameInner({ lang, setLang }) {
 
     state.moveCount++;
     setGameState(state);
-    await saveGameState(gameId, state);
+    saveGameState(gameId, state); // fire-and-forget
   }, [gameState, gameId, checkSpecials, awardHandPoints, t]);
 
   // Auto-resolve showdown after timer
@@ -637,7 +659,7 @@ function GameInner({ lang, setLang }) {
     else { state.handWinner = 1 - playerIdx; state.handWinReason = t.claimed31only(pts); }
     awardHandPoints(state, state.handWinner);
     state.moveCount++;
-    setGameState(state); await saveGameState(gameId, state);
+    setGameState(state); saveGameState(gameId, state);
   }, [gameState, playerIdx, gameId, awardHandPoints, t]);
 
   const canDouble = useMemo(() => {
@@ -655,7 +677,7 @@ function GameInner({ lang, setLang }) {
     const state = { ...gameState, matchScores: [...gameState.matchScores] };
     state.doublingPhase = { proposer: playerIdx, proposedLevel: state.stakeLevel + 1 };
     state.moveCount++; state.lastActivity[playerIdx] = Date.now();
-    setGameState(state); await saveGameState(gameId, state);
+    setGameState(state); saveGameState(gameId, state);
   }, [canDouble, gameState, playerIdx, gameId]);
 
   const respondToDouble = useCallback(async (accept) => {
@@ -679,7 +701,7 @@ function GameInner({ lang, setLang }) {
       awardHandPoints(state, proposer);
     }
     state.moveCount++; state.lastActivity[playerIdx] = Date.now();
-    setGameState(state); await saveGameState(gameId, state);
+    setGameState(state); saveGameState(gameId, state);
   }, [gameState, playerIdx, gameId, awardHandPoints, t]);
 
   const newMatch = useCallback(async () => {
@@ -694,11 +716,19 @@ function GameInner({ lang, setLang }) {
       tabIds: gameState?.tabIds || [null, null],
     };
     setGameState(state); setSelectedCards([]); setPhase("playing");
-    await saveGameState(gameId, state);
+    saveGameState(gameId, state);
   }, [gameId, gameState]);
+
+  const [confirmStart, setConfirmStart] = useState(false);
+  // Reset confirm when entering a new ready phase
+  const readyMoveCount = gameState?.handPhase === "ready" ? gameState.moveCount : null;
+  useEffect(() => { setConfirmStart(false); }, [readyMoveCount]);
 
   const pressReady = useCallback(async () => {
     if (!gameState || playerIdx === null || !gameId) return;
+    // First click = confirm, second click = actually ready
+    if (!confirmStart) { setConfirmStart(true); return; }
+    setConfirmStart(false);
     const state = { ...gameState, playersReady: [...(gameState.playersReady || [false, false])] };
     state.playersReady[playerIdx] = true;
     if (state.playersReady[0] && state.playersReady[1]) {
@@ -708,8 +738,8 @@ function GameInner({ lang, setLang }) {
     state.moveCount++;
     state.lastActivity[playerIdx] = Date.now();
     setGameState(state);
-    await saveGameState(gameId, state);
-  }, [gameState, playerIdx, gameId]);
+    saveGameState(gameId, state); // fire-and-forget
+  }, [gameState, playerIdx, gameId, confirmStart]);
 
   const shareURL = useMemo(() => {
     if (!gameId) return "";
@@ -1063,8 +1093,12 @@ function GameInner({ lang, setLang }) {
               <div className="py-3 rounded-xl bg-green-800/40 text-green-300 font-semibold text-sm animate-pulse">{t.waitingForBoth}</div>
             ) : (
               <button onClick={pressReady}
-                className="w-full py-3 bg-amber-700 hover:bg-amber-600 text-white font-bold text-lg rounded-xl transition-colors shadow-lg">
-                {t.start}
+                className={`w-full py-3 font-bold text-lg rounded-xl transition-all duration-200 shadow-lg ${
+                  confirmStart
+                    ? "bg-green-700 hover:bg-green-600 text-white scale-105"
+                    : "bg-amber-700 hover:bg-amber-600 text-white"
+                }`}>
+                {confirmStart ? t.confirmStart : t.start}
               </button>
             )}
           </div>
