@@ -569,7 +569,8 @@ function GameInner({ lang, setLang }) {
   const [gameId, setGameId] = useState(getGameIdFromURL);
   const [playerIdx, setPlayerIdx] = useState(null);
   const [gameState, setGameState] = useState(null);
-  const [phase, setPhase] = useState("menu");
+  // If URL has ?game=, start in "loading" to avoid flash of menu
+  const [phase, setPhase] = useState(() => getGameIdFromURL() ? "loading" : "menu");
   const [selectedCards, setSelectedCards] = useState([]);
   const [statusMsg, setStatusMsg] = useState("");
   const [opponentConnected, setOpponentConnected] = useState(false);
@@ -657,7 +658,7 @@ function GameInner({ lang, setLang }) {
 
   const joinGame = useCallback(async (gid) => {
     const s = await loadGameState(gid);
-    if (!s) { setStatusMsg(t.gameNotFound); setTimeout(() => setStatusMsg(""), 3000); return; }
+    if (!s) { setStatusMsg(t.gameNotFound); setTimeout(() => setStatusMsg(""), 3000); setPhase("menu"); return; }
     const myTabId = tabIdRef.current;
     const now = Date.now();
 
@@ -697,7 +698,7 @@ function GameInner({ lang, setLang }) {
     }
 
     // 5. Truly full with both players active
-    setStatusMsg(t.gameFull); setTimeout(() => setStatusMsg(""), 3000);
+    setStatusMsg(t.gameFull); setTimeout(() => setStatusMsg(""), 3000); setPhase("menu");
   }, [startSync, t]);
 
   const createGame = useCallback(async () => {
@@ -1028,16 +1029,8 @@ function GameInner({ lang, setLang }) {
     window.history.replaceState({}, "", url);
   }, []);
 
-  const [confirmStart, setConfirmStart] = useState(false);
-  // Reset confirm when entering a new ready phase
-  const readyMoveCount = gameState?.handPhase === "ready" ? gameState.moveCount : null;
-  useEffect(() => { setConfirmStart(false); }, [readyMoveCount]);
-
   const pressReady = useCallback(async () => {
     if (!gameState || playerIdx === null || !gameId) return;
-    // First click = confirm, second click = actually ready
-    if (!confirmStart) { setConfirmStart(true); return; }
-    setConfirmStart(false);
     const state = { ...gameState, playersReady: [...(gameState.playersReady || [false, false])] };
     state.playersReady[playerIdx] = true;
     if (state.playersReady[0] && state.playersReady[1]) {
@@ -1047,8 +1040,8 @@ function GameInner({ lang, setLang }) {
     state.moveCount++;
     state.lastActivity[playerIdx] = Date.now();
     setGameState(state);
-    saveGameState(gameId, state); // fire-and-forget
-  }, [gameState, playerIdx, gameId, confirmStart]);
+    saveGameState(gameId, state);
+  }, [gameState, playerIdx, gameId]);
 
   const shareURL = useMemo(() => {
     if (!gameId) return "";
@@ -1082,6 +1075,19 @@ function GameInner({ lang, setLang }) {
   }, [myHand, opHand, newMyCards, newOpCards]);
 
   const TABLE_BG = { background: "radial-gradient(ellipse at center, #1a4d2e 0%, #0d2818 70%, #091a10 100%)" };
+
+  // ── LOADING (joining via URL) ──
+  if (phase === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={TABLE_BG}>
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-amber-100 mb-4" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.5)" }}>{t.title}</h1>
+          <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-green-300/70 text-sm">{t.waiting}</p>
+        </div>
+      </div>
+    );
+  }
 
   // ── MENU ──
   if (phase === "menu") {
@@ -1524,12 +1530,8 @@ function GameInner({ lang, setLang }) {
               <div className="py-3 rounded-xl bg-green-800/40 text-green-300 font-semibold text-sm animate-pulse">{t.waitingForBoth}</div>
             ) : (
               <button onClick={pressReady}
-                className={`w-full py-3 font-bold text-lg rounded-xl transition-all duration-200 shadow-lg ${
-                  confirmStart
-                    ? "bg-green-700 hover:bg-green-600 text-white scale-105"
-                    : "bg-amber-700 hover:bg-amber-600 text-white"
-                }`}>
-                {confirmStart ? t.confirmStart : t.start}
+                className="w-full py-3 font-bold text-lg rounded-xl transition-all duration-200 shadow-lg bg-amber-700 hover:bg-amber-600 text-white active:scale-95">
+                {t.start}
               </button>
             )}
           </div>
