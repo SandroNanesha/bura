@@ -798,7 +798,7 @@ function GameInner({ lang, setLang }) {
           freshState.moveCount++;
           setGameState(freshState);
           saveGameState(gameId, freshState);
-        }, 700);
+        }, 1000);
       }
       state.moveCount++; state.lastActivity[myIdx] = Date.now();
     }
@@ -849,7 +849,7 @@ function GameInner({ lang, setLang }) {
       state.moveCount++;
       setGameState(state);
       saveGameState(gameId, state);
-    }, 700);
+    }, 1000);
   }, [gameState, gameId, checkSpecials, awardHandPoints, t]);
 
   // Auto-resolve showdown after timer
@@ -894,16 +894,16 @@ function GameInner({ lang, setLang }) {
             else next.opCards.push(opCards[step.cardIdx]);
             return next;
           });
-        }, 300 + i * 350));
+        }, 500 + i * 500));
       });
 
       timers.push(setTimeout(() => {
         setDealingCards(prev => prev ? { ...prev, done: true } : prev);
-      }, 300 + sequence.length * 350 + 400));
+      }, 500 + sequence.length * 500 + 600));
 
       timers.push(setTimeout(() => {
         setDealingCards(null);
-      }, 300 + sequence.length * 350 + 800));
+      }, 500 + sequence.length * 500 + 1200));
 
       return () => { timers.forEach(clearTimeout); setDealingCards(null); };
     }
@@ -1274,7 +1274,7 @@ function GameInner({ lang, setLang }) {
             </div>
             <div className="flex items-center gap-0.5">
               {opHand.map((_, i) => (
-                <div key={`op-${dealAnimKey}-${i}`} className="animate-slide-deal-opp" style={{ animationDelay: `${i * 150}ms` }}>
+                <div key={`op-${dealAnimKey}-${i}`} className="animate-slide-deal-opp" style={{ animationDelay: `${i * 200}ms` }}>
                   <Card faceDown size="small" style={{ marginLeft: i > 0 ? "-0.4rem" : 0 }} />
                 </div>
               ))}
@@ -1309,7 +1309,7 @@ function GameInner({ lang, setLang }) {
                     <div className="flex justify-center gap-2">
                       {opCollect.map((c, i) => (
                         <div key={`col-op-${c}`} className="anim-collect"
-                          style={{ '--collect-x': collectX, '--collect-y': collectY, animationDelay: `${i * 80}ms` }}>
+                          style={{ '--collect-x': collectX, '--collect-y': collectY, animationDelay: `${i * 120}ms` }}>
                           {opIsResp ? <Card faceDown size="small" /> : <Card card={c} size="small" />}
                         </div>
                       ))}
@@ -1319,7 +1319,7 @@ function GameInner({ lang, setLang }) {
                     <div className="flex justify-center gap-2">
                       {myCollect.map((c, i) => (
                         <div key={`col-my-${c}`} className="anim-collect"
-                          style={{ '--collect-x': collectX, '--collect-y': collectY, animationDelay: `${i * 80}ms` }}>
+                          style={{ '--collect-x': collectX, '--collect-y': collectY, animationDelay: `${i * 120}ms` }}>
                           {myIsResp ? <Card faceDown size="small" /> : <Card card={c} size="small" />}
                         </div>
                       ))}
@@ -1333,7 +1333,7 @@ function GameInner({ lang, setLang }) {
             {!collectingTrick && opTrickCards.length > 0 && (
               <div className={`flex justify-center gap-2 ${inShowdown ? "animate-showdown-glow" : ""}`}>
                 {opTrickCards.map((c, i) => (
-                  <div key={`opt-${c}`} className="animate-trick-enter-opp" style={{ animationDelay: `${i * 120}ms` }}>
+                  <div key={`opt-${c}`} className="animate-trick-enter-opp" style={{ animationDelay: `${i * 180}ms` }}>
                     {hideOpResponse
                       ? <Card faceDown size="small" />
                       : <Card card={c} size="small" className={inShowdown && showdownWinner !== playerIdx ? "ring-2 ring-red-400" : ""} />
@@ -1352,7 +1352,7 @@ function GameInner({ lang, setLang }) {
             {!collectingTrick && myTrickCards.length > 0 && (
               <div className={`flex justify-center gap-2 ${inShowdown ? "animate-showdown-glow" : ""}`}>
                 {myTrickCards.map((c, i) => (
-                  <div key={`myt-${c}`} className="animate-trick-enter" style={{ animationDelay: `${i * 120}ms` }}>
+                  <div key={`myt-${c}`} className="animate-trick-enter" style={{ animationDelay: `${i * 180}ms` }}>
                     {hideMyResponse
                       ? <Card faceDown size="small" />
                       : <Card card={c} size="small" className={inShowdown && showdownWinner === playerIdx ? "ring-2 ring-green-400" : ""} />
@@ -1370,7 +1370,7 @@ function GameInner({ lang, setLang }) {
                 {myHand.map((c, i) => {
                   const isNew = newMyCards.includes(c);
                   return (
-                    <div key={c} className={isNew ? "animate-slide-deal" : ""} style={isNew ? { animationDelay: `${i * 150}ms` } : {}}>
+                    <div key={c} className={isNew ? "animate-slide-deal" : ""} style={isNew ? { animationDelay: `${i * 200}ms` } : {}}>
                       <Card card={c} selected={selectedCards.includes(c)} onClick={() => toggleCard(c)}
                         disabled={!isMyTurn || !isPlaying || !!gameState?.doublingPhase || inShowdown} />
                     </div>

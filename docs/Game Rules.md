@@ -15,6 +15,8 @@
 | J | 2 |
 | 6-9 | 0 |
 
+Total deck points: 120 (30 per suit)
+
 ## Gameplay
 1. Each player gets 3 cards
 2. Leader plays 1-3 cards (same suit if multiple)
@@ -24,6 +26,11 @@
 6. Hands replenished from stock (winner draws first)
 7. Continue until stock empty and hands empty
 
+## Card Visibility
+- **Response cards are always face-down** — opponent cannot see what you played
+- **Only during showdown** (when responder beats leader) are all cards revealed for 3 seconds
+- This applies during collect animation too — response stays hidden
+
 ## Winning
 - Compare pile points when all cards played
 - Higher pile wins the hand
@@ -31,14 +38,15 @@
 - "Bura": three trump cards in hand = instant win
 
 ## Showdown
-- When responder beats lead cards, a 4-second showdown display occurs
-- When leader's cards win, trick resolves with a collect animation
+- When responder beats lead cards, a 3-second showdown display occurs
+- Winner badge shown, cards glow
+- When leader's cards win, trick resolves with collect animation (no reveal)
 
-## Stake Doubling
+## Stake Doubling (დავი)
 - Active player can propose raising stakes
+- Levels: დავი (2pt) → სე (3pt) → ჩარი (4pt) → ფანჯი (5pt) → შაში (6pt)
 - Opponent can accept (stakes increase) or decline (lose hand at current stakes)
 - After accepting, acceptor gets next doubling rights
-- Up to 5 stake levels
 
 ## Match
 - Play to configurable point target (default 11)
