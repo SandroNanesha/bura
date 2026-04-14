@@ -175,8 +175,8 @@ const SUITS = ["\u2660", "\u2665", "\u2666", "\u2663"];
 const RANKS = ["A", "10", "K", "Q", "J", "9", "8", "7", "6"];
 const RANK_ORDER = { A: 8, "10": 7, K: 6, Q: 5, J: 4, "9": 3, "8": 2, "7": 1, "6": 0 };
 const POINT_VALUES = { A: 11, "10": 10, K: 4, Q: 3, J: 2, "9": 0, "8": 0, "7": 0, "6": 0 };
-const POLL_INTERVAL = 1200;
-const DISCONNECT_TIMEOUT = 10000;
+const HEARTBEAT_INTERVAL = 5000;
+const DISCONNECT_TIMEOUT = 12000;
 
 // ─── Doubling System ─────────────────────────────────────────────────────────
 const STAKE_LEVELS = [
@@ -403,7 +403,6 @@ function GameInner({ lang, setLang }) {
   const [opponentConnected, setOpponentConnected] = useState(false);
   const [opponentEverConnected, setOpponentEverConnected] = useState(false);
   const [lobbyPlayTo, setLobbyPlayTo] = useState(11);
-  const pollRef = useRef(null);
   const playerIdxRef = useRef(playerIdx);
   const gameIdRef = useRef(gameId);
   const phaseRef = useRef(phase);
@@ -413,33 +412,70 @@ function GameInner({ lang, setLang }) {
   useEffect(() => { gameIdRef.current = gameId; }, [gameId]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
-  const startPolling = useCallback((gid) => {
-    if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(async () => {
-      const state = await loadGameState(gid || gameIdRef.current);
-      if (!state) return;
+  const unsubRef = useRef(null);
+  const heartbeatRef = useRef(null);
+
+  const handleStateUpdate = useCallback((value) => {
+    if (!value) return;
+    try {
+      const state = typeof value === "string" ? JSON.parse(value) : value;
       const myIdx = playerIdxRef.current;
       if (myIdx !== null) {
         const opConnected = Date.now() - (state.lastActivity?.[1 - myIdx] || 0) < DISCONNECT_TIMEOUT;
         setOpponentConnected(opConnected);
         if (opConnected) setOpponentEverConnected(true);
-        if (state.lastActivity && Date.now() - state.lastActivity[myIdx] > 3000) {
-          const fresh = await loadGameState(gid || gameIdRef.current);
-          if (fresh && fresh.moveCount === state.moveCount) {
-            fresh.lastActivity[myIdx] = Date.now();
-            await saveGameState(gid || gameIdRef.current, fresh);
-          }
-        }
       }
       setGameState({ ...state });
       const cur = phaseRef.current;
       if (state.phase === "playing" && cur !== "playing") setPhase("playing");
       if (state.phase === "matchover") setPhase("matchover");
       if (state.players === 2 && cur === "lobby") setPhase("playing");
-    }, POLL_INTERVAL);
+    } catch {}
   }, []);
 
-  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+  const startSync = useCallback((gid) => {
+    // Unsubscribe previous
+    if (unsubRef.current) unsubRef.current();
+    if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+
+    const key = storageKey(gid);
+
+    // Subscribe to live WS updates
+    if (window.storage.subscribe) {
+      unsubRef.current = window.storage.subscribe(key, handleStateUpdate);
+    }
+
+    // Heartbeat: send our lastActivity every few seconds
+    heartbeatRef.current = setInterval(async () => {
+      const myIdx = playerIdxRef.current;
+      if (myIdx === null) return;
+      const fresh = await loadGameState(gid);
+      if (!fresh) return;
+      const now = Date.now();
+      // Check opponent
+      const opConnected = now - (fresh.lastActivity?.[1 - myIdx] || 0) < DISCONNECT_TIMEOUT;
+      setOpponentConnected(opConnected);
+      if (opConnected) setOpponentEverConnected(true);
+      // Update our heartbeat
+      if (now - fresh.lastActivity[myIdx] > 3000) {
+        fresh.lastActivity[myIdx] = now;
+        saveGameState(gid, fresh);
+      }
+      // If no WS subscribe, also sync state here as fallback
+      if (!window.storage.subscribe) {
+        setGameState({ ...fresh });
+        const cur = phaseRef.current;
+        if (fresh.phase === "playing" && cur !== "playing") setPhase("playing");
+        if (fresh.phase === "matchover") setPhase("matchover");
+        if (fresh.players === 2 && cur === "lobby") setPhase("playing");
+      }
+    }, HEARTBEAT_INTERVAL);
+  }, [handleStateUpdate]);
+
+  useEffect(() => () => {
+    if (unsubRef.current) unsubRef.current();
+    if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+  }, []);
 
   const joinGame = useCallback(async (gid) => {
     const s = await loadGameState(gid);
@@ -450,7 +486,7 @@ function GameInner({ lang, setLang }) {
       setGameId(gid); gameIdRef.current = gid; setGameIdInURL(gid);
       s.lastActivity[0] = Date.now(); await saveGameState(gid, s);
       setGameState(s); setPhase(s.phase === "lobby" ? "lobby" : s.phase);
-      startPolling(gid); return;
+      startSync(gid); return;
     }
     if (s.players >= 2) {
       if (s.tabIds?.[1] && s.tabIds[1] !== myTabId) {
@@ -461,15 +497,15 @@ function GameInner({ lang, setLang }) {
       s.lastActivity[1] = Date.now(); if (s.tabIds) s.tabIds[1] = myTabId;
       await saveGameState(gid, s); setGameState(s);
       setPhase(s.phase === "lobby" ? "lobby" : s.phase);
-      startPolling(gid); return;
+      startSync(gid); return;
     }
     s.players = 2; s.phase = "playing"; s.handPhase = "ready"; s.playersReady = [false, false]; s.lastActivity[1] = Date.now();
     if (s.tabIds) s.tabIds[1] = myTabId;
     setPlayerIdx(1); playerIdxRef.current = 1;
     setGameId(gid); gameIdRef.current = gid; setGameIdInURL(gid);
     await saveGameState(gid, s); setGameState(s); setPhase("playing");
-    startPolling(gid);
-  }, [startPolling, t]);
+    startSync(gid);
+  }, [startSync, t]);
 
   const createGame = useCallback(async () => {
     const gid = crypto.randomUUID().slice(0, 8);
@@ -482,8 +518,8 @@ function GameInner({ lang, setLang }) {
     };
     setGameId(gid); setPlayerIdx(0); playerIdxRef.current = 0; gameIdRef.current = gid;
     setGameState(state); setPhase("lobby"); setGameIdInURL(gid);
-    await saveGameState(gid, state); startPolling(gid);
-  }, [startPolling, lobbyPlayTo]);
+    await saveGameState(gid, state); startSync(gid);
+  }, [startSync, lobbyPlayTo]);
 
   useEffect(() => {
     const urlGameId = getGameIdFromURL();
