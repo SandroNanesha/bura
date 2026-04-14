@@ -85,6 +85,9 @@ const STRINGS = {
     typeMessage: "Type a message\u2026",
     send: "Send",
     backToMenu: "Back to Menu",
+    handSizeLabel: "Hand size:",
+    threeCard: "3 cards",
+    fiveCard: "5 cards",
   },
   ka: {
     greeting: "\u10DB\u10DD\u10D2\u10D4\u10E1\u10D0\u10DA\u10DB\u10D4\u10D1\u10D8\u10D7 \u10DB\u10D0\u10E0\u10D8\u10D0\u10DB, \u10E1\u10D0\u10DC\u10D0\u10DB \u10D7\u10D0\u10DB\u10D0\u10E8\u10E1 \u10D3\u10D0\u10D8\u10EC\u10E7\u10D4\u10D1\u10D7 \u10D3\u10D0\u10E0\u10EC\u10DB\u10E3\u10DC\u10D3\u10D8\u10D7 \u10E0\u10DD\u10DB \u10E1\u10D0\u10D1\u10D0\u10DC\u10D8 \u10E9\u10D8\u10EE\u10DD\u10DA\u10E8\u10D8\u10D0 \u10E9\u10D0\u10E1\u10DB\u10E3\u10DA\u10D8. \u10EC\u10D8\u10DC\u10D0\u10D0\u10E6\u10DB\u10D3\u10D4\u10D2 \u10E8\u10D4\u10DB\u10D7\u10EE\u10D5\u10D4\u10D5\u10D0\u10E8\u10D8 \u10D7\u10E5\u10D5\u10D4\u10DC \u10D5\u10D4\u10E0 \u10DB\u10DD\u10D0\u10EE\u10D4\u10E0\u10EE\u10D4\u10D1\u10D7 \u10D7\u10D0\u10DB\u10D0\u10E8\u10E8\u10D8 \u10DB\u10DD\u10DC\u10D0\u10EC\u10D8\u10DA\u10D4\u10DD\u10D1\u10D0\u10E1.",
@@ -169,6 +172,9 @@ const STRINGS = {
     typeMessage: "\u10E8\u10D4\u10E2\u10E7\u10DD\u10D1\u10D8\u10DC\u10D4\u10D1\u10D0\u2026",
     send: "\u10D2\u10D0\u10D2\u10D6\u10D0\u10D5\u10DC\u10D0",
     backToMenu: "\u10DB\u10D4\u10DC\u10D8\u10E3\u10E8\u10D8",
+    handSizeLabel: "\u10D9\u10D0\u10E0\u10E2\u10D4\u10D1\u10D8\u10E1 \u10E0\u10D0\u10DD\u10D3\u10D4\u10DC\u10DD\u10D1\u10D0:",
+    threeCard: "3 \u10D9\u10D0\u10E0\u10E2\u10D8",
+    fiveCard: "5 \u10D9\u10D0\u10E0\u10E2\u10D8",
   },
 };
 
@@ -257,14 +263,16 @@ function setGameIdInURL(id, playerSlot) {
 }
 
 // ─── Game Logic ──────────────────────────────────────────────────────────────
-function initHandState(seed, dealer) {
+function initHandState(seed, dealer, handSize = 3) {
   const deck = shuffleDeck(seed);
+  const h = handSize;
   return {
     seed,
-    hands: [[deck[0], deck[1], deck[2]], [deck[3], deck[4], deck[5]]],
-    trumpCard: deck[6],
-    trumpSuit: cardSuit(deck[6]),
-    stock: deck.slice(7),
+    handSize: h,
+    hands: [deck.slice(0, h), deck.slice(h, h * 2)],
+    trumpCard: deck[h * 2],
+    trumpSuit: cardSuit(deck[h * 2]),
+    stock: deck.slice(h * 2 + 1),
     scorePiles: [[], []],
     currentTrick: { lead: [], response: [], leaderIdx: null },
     turn: 1 - dealer,
@@ -282,9 +290,9 @@ function initHandState(seed, dealer) {
   };
 }
 
-function initMatchState(seed, playTo, dealer) {
+function initMatchState(seed, playTo, dealer, handSize = 3) {
   return {
-    ...initHandState(seed, dealer),
+    ...initHandState(seed, dealer, handSize),
     phase: "playing",
     matchScores: [0, 0],
     playTo,
@@ -325,9 +333,10 @@ function resolveTrick(leadCards, responseCards, trumpSuit) {
 
 function replenishHands(state) {
   const { hands, stock } = state;
+  const h = state.handSize || 3;
   const order = [state.turn, 1 - state.turn];
-  const needed0 = Math.max(0, 3 - hands[order[0]].length);
-  const needed1 = Math.max(0, 3 - hands[order[1]].length);
+  const needed0 = Math.max(0, h - hands[order[0]].length);
+  const needed1 = Math.max(0, h - hands[order[1]].length);
   if (stock.length < needed0 + needed1) return;
   const draws = [0, 0], targets = [needed0, needed1];
   while (draws[0] < targets[0] || draws[1] < targets[1]) {
@@ -566,6 +575,7 @@ function GameInner({ lang, setLang }) {
   const [opponentConnected, setOpponentConnected] = useState(false);
   const [opponentEverConnected, setOpponentEverConnected] = useState(false);
   const [lobbyPlayTo, setLobbyPlayTo] = useState(11);
+  const [lobbyHandSize, setLobbyHandSize] = useState(3);
   const [collectingTrick, setCollectingTrick] = useState(null); // { cards, winner } during collect animation
   const prevHandRef = useRef([]);
   const prevOppHandRef = useRef([]);
@@ -694,7 +704,7 @@ function GameInner({ lang, setLang }) {
     const gid = crypto.randomUUID().slice(0, 8);
     const seed = Math.floor(Math.random() * 2147483647);
     const state = {
-      ...initMatchState(seed, lobbyPlayTo, 0),
+      ...initMatchState(seed, lobbyPlayTo, 0, lobbyHandSize),
       phase: "lobby", players: 1,
       lastActivity: [Date.now(), 0],
       tabIds: [tabIdRef.current, null],
@@ -702,7 +712,7 @@ function GameInner({ lang, setLang }) {
     setGameId(gid); setPlayerIdx(0); playerIdxRef.current = 0; gameIdRef.current = gid;
     setGameState(state); setPhase("lobby"); setGameIdInURL(gid, 0);
     await saveGameState(gid, state); startSync(gid);
-  }, [startSync, lobbyPlayTo]);
+  }, [startSync, lobbyPlayTo, lobbyHandSize]);
 
   useEffect(() => {
     const urlGameId = getGameIdFromURL();
@@ -717,7 +727,7 @@ function GameInner({ lang, setLang }) {
   const toggleCard = useCallback((card) => {
     setSelectedCards((prev) => {
       if (prev.includes(card)) return prev.filter((c) => c !== card);
-      if (prev.length >= 3) return prev;
+      if (prev.length >= (gameState?.handSize || 3)) return prev;
       if (leadPhaseRef.current && prev.length > 0 && cardSuit(card) !== cardSuit(prev[0])) return prev;
       return [...prev, card];
     });
@@ -746,7 +756,7 @@ function GameInner({ lang, setLang }) {
   const startNextHand = useCallback(async () => {
     if (!gameState || !gameId) return;
     const newDealer = gameState.handWinner === -1 ? gameState.dealer : gameState.handWinner;
-    const hand = initHandState(Math.floor(Math.random() * 2147483647), newDealer);
+    const hand = initHandState(Math.floor(Math.random() * 2147483647), newDealer, gameState.handSize || 3);
     const newState = {
       ...gameState, ...hand,
       phase: "playing",
@@ -992,7 +1002,7 @@ function GameInner({ lang, setLang }) {
   const newMatch = useCallback(async () => {
     if (!gameId) return;
     const state = {
-      ...initMatchState(Math.floor(Math.random() * 2147483647), gameState?.playTo || 11, 0),
+      ...initMatchState(Math.floor(Math.random() * 2147483647), gameState?.playTo || 11, 0, gameState?.handSize || 3),
       phase: "playing", players: 2,
       handPhase: "ready",
       playersReady: [false, false],
@@ -1083,6 +1093,17 @@ function GameInner({ lang, setLang }) {
           <p className="text-center text-green-200/70 mb-4 text-sm">{t.subtitle}</p>
           <div className="bg-amber-900/30 border border-amber-700/30 rounded-xl px-4 py-3 mb-6">
             <p className="text-amber-200/90 text-sm text-center leading-relaxed">{t.greeting}</p>
+          </div>
+          <div className="mb-4">
+            <p className="text-green-200/70 text-sm mb-2 text-center">{t.handSizeLabel}</p>
+            <div className="flex justify-center gap-3">
+              {[3, 5].map((n) => (
+                <button key={n} onClick={() => setLobbyHandSize(n)}
+                  className={`px-6 py-2 rounded-xl font-semibold text-sm transition-colors ${lobbyHandSize === n ? "bg-amber-600 text-white shadow-lg" : "bg-black/30 text-green-300 border border-green-800/50 hover:bg-black/40"}`}>
+                  {n === 3 ? t.threeCard : t.fiveCard}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="mb-6">
             <p className="text-green-200/70 text-sm mb-2 text-center">{t.playTo}</p>
@@ -1198,7 +1219,7 @@ function GameInner({ lang, setLang }) {
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <div className={`w-2 h-2 rounded-full flex-shrink-0 ${opponentConnected ? "bg-green-400" : "bg-red-400 animate-pulse"}`} />
           {isPlaying && (
-            <button onClick={claim31} className="px-2 py-1 bg-red-700/80 hover:bg-red-600 text-white text-[10px] font-bold rounded-lg transition-colors leading-none whitespace-nowrap">{t.claim31}</button>
+            <button onClick={claim31} className="px-3 py-1.5 bg-red-700 hover:bg-red-600 text-white text-xs font-bold rounded-xl transition-colors shadow-lg border border-red-500/40 whitespace-nowrap">{t.claim31}</button>
           )}
           <LangToggle lang={lang} setLang={setLang} />
         </div>
@@ -1381,12 +1402,12 @@ function GameInner({ lang, setLang }) {
           </div>
 
           {/* My pile badge + hand */}
-          <div className="mt-auto">
+          <div className="mt-auto mb-2">
             <div className={`flex items-center justify-center gap-1.5 mb-1 ${myScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={myScorePile.length}>
               <span className="text-green-300/70 text-xs font-semibold">{t.yourPile}</span>
               <span className="text-amber-200 text-sm font-bold bg-black/40 px-2 py-0.5 rounded-lg">{myScorePile.length}</span>
             </div>
-            <div className="flex items-end justify-center gap-1 sm:gap-2 hand-fan">
+            <div className="flex items-end justify-center gap-1 sm:gap-2 hand-fan" data-count={myHand.length}>
               {myHand.map((c, i) => {
                 const isNew = newMyCards.includes(c);
                 return (
@@ -1398,20 +1419,27 @@ function GameInner({ lang, setLang }) {
               })}
             </div>
           </div>
-          {/* Action buttons — inside center column, above safe area */}
-          {(isMyTurn && isPlaying && !gameState?.doublingPhase) && (
-            <div className="flex justify-center gap-3 py-1.5 bg-black/40 border-t border-green-900/30">
-              {canDouble && !doublingWaiting && (
-                <button onClick={proposeDouble} className="px-4 py-1.5 rounded-lg font-bold text-xs bg-red-800/80 hover:bg-red-700 text-white transition-all shadow border border-red-600/30">
+          {/* Action buttons */}
+          {isPlaying && (
+            <div className="flex justify-center items-center gap-2 py-2 bg-black/40 border-t border-green-900/30 flex-wrap">
+              {myScorePile.length > 0 && (
+                <button onClick={claim31} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-red-700 hover:bg-red-600 text-white transition-all shadow-lg border border-red-500/40 animate-pulse">
+                  {t.claim31}
+                </button>
+              )}
+              {isMyTurn && !gameState?.doublingPhase && canDouble && !doublingWaiting && (
+                <button onClick={proposeDouble} className="px-5 py-2.5 rounded-xl font-bold text-sm bg-red-800/80 hover:bg-red-700 text-white transition-all shadow-lg border border-red-600/30">
                   {nextStakeLabel(gameState?.stakeLevel || 0)}
                 </button>
               )}
-              <button onClick={playCards} disabled={!canPlay}
-                className={`px-6 py-1.5 rounded-lg font-semibold text-xs transition-all shadow ${canPlay ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-gray-700/50 text-gray-500 cursor-not-allowed"}`}>
-                {gameState?.leadPhase
-                  ? `${t.play} ${selectedCards.length || "?"} ${selectedCards.length !== 1 ? t.cards : t.card}`
-                  : `${t.respondWith} ${selectedCards.length}/${reqResp}`}
-              </button>
+              {isMyTurn && !gameState?.doublingPhase && (
+                <button onClick={playCards} disabled={!canPlay}
+                  className={`px-7 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg ${canPlay ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-gray-700/50 text-gray-500 cursor-not-allowed"}`}>
+                  {gameState?.leadPhase
+                    ? `${t.play} ${selectedCards.length || "?"} ${selectedCards.length !== 1 ? t.cards : t.card}`
+                    : `${t.respondWith} ${selectedCards.length}/${reqResp}`}
+                </button>
+              )}
             </div>
           )}
         </div>

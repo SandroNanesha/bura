@@ -71,9 +71,22 @@
     .card-disabled { opacity: 0.55; cursor: default !important; }
 
     /* ═══ Hand fan ═══ */
+    /* 3-card fan */
     .hand-fan > *:nth-child(1) { --fan: -10deg; }
     .hand-fan > *:nth-child(2) { --fan: 0deg; }
     .hand-fan > *:nth-child(3) { --fan: 10deg; }
+    /* 4-card fan */
+    .hand-fan > *:nth-child(4) { --fan: 15deg; }
+    .hand-fan[data-count="4"] > *:nth-child(1) { --fan: -12deg; }
+    .hand-fan[data-count="4"] > *:nth-child(2) { --fan: -4deg; }
+    .hand-fan[data-count="4"] > *:nth-child(3) { --fan: 4deg; }
+    .hand-fan[data-count="4"] > *:nth-child(4) { --fan: 12deg; }
+    /* 5-card fan */
+    .hand-fan[data-count="5"] > *:nth-child(1) { --fan: -14deg; }
+    .hand-fan[data-count="5"] > *:nth-child(2) { --fan: -7deg; }
+    .hand-fan[data-count="5"] > *:nth-child(3) { --fan: 0deg; }
+    .hand-fan[data-count="5"] > *:nth-child(4) { --fan: 7deg; }
+    .hand-fan[data-count="5"] > *:nth-child(5) { --fan: 14deg; }
     .hand-fan > * {
       transform-origin: center 140%;
       rotate: var(--fan, 0deg);
