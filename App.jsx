@@ -414,7 +414,7 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
   return (
     <>
       {/* Toast banners for incoming messages */}
-      <div className="fixed right-3 z-50 flex flex-col gap-2 pointer-events-none" style={{ bottom: "max(8rem, calc(8rem + env(safe-area-inset-bottom, 0px)))" }}>
+      <div className="fixed right-3 top-1/2 z-50 flex flex-col gap-2 pointer-events-none" style={{ transform: "translateY(calc(-100% - 2rem))" }}>
         {toasts.map(toast => (
           <div key={toast.id} className="bg-black/80 text-white text-sm px-4 py-2 rounded-xl shadow-lg backdrop-blur-sm border border-green-800/40 max-w-[16rem] animate-toast-in pointer-events-auto"
             onClick={() => { setOpen(true); setToasts(prev => prev.filter(t => t.id !== toast.id)); }}>
@@ -427,8 +427,7 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
       {/* Chat toggle button */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="fixed right-3 z-40 w-9 h-9 rounded-full bg-green-800/90 hover:bg-green-700 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 border border-green-600/30"
-        style={{ bottom: "max(5rem, calc(5rem + env(safe-area-inset-bottom, 0px)))" }}
+        className="fixed right-1 top-1/2 -translate-y-1/2 z-40 w-9 h-9 rounded-full bg-green-800/90 hover:bg-green-700 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 border border-green-600/30"
       >
         {open ? (
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -444,7 +443,7 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed right-3 left-20 sm:left-auto sm:w-72 z-50 bg-gray-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-green-800/40 flex flex-col overflow-hidden animate-chat-open" style={{ bottom: "max(8rem, calc(8rem + env(safe-area-inset-bottom, 0px)))", maxHeight: "16rem" }}>
+        <div className="fixed right-3 left-20 sm:left-auto sm:w-72 z-50 bg-gray-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-green-800/40 flex flex-col overflow-hidden animate-chat-open" style={{ top: "15%", maxHeight: "50vh" }}>
           {/* Header */}
           <div className="px-4 py-2.5 bg-black/40 border-b border-green-800/30 flex items-center justify-between">
             <span className="text-amber-200 font-bold text-sm">{t.chat}</span>
