@@ -414,7 +414,7 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
   return (
     <>
       {/* Toast banners for incoming messages */}
-      <div className="fixed bottom-16 right-2 z-50 flex flex-col gap-2 pointer-events-none">
+      <div className="fixed right-2 z-50 flex flex-col gap-2 pointer-events-none" style={{ bottom: "max(7rem, calc(7rem + env(safe-area-inset-bottom)))" }}>
         {toasts.map(toast => (
           <div key={toast.id} className="bg-black/80 text-white text-sm px-4 py-2 rounded-xl shadow-lg backdrop-blur-sm border border-green-800/40 max-w-[16rem] animate-toast-in pointer-events-auto"
             onClick={() => { setOpen(true); setToasts(prev => prev.filter(t => t.id !== toast.id)); }}>
@@ -427,7 +427,8 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
       {/* Chat toggle button */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="fixed bottom-3 right-2 z-40 w-10 h-10 rounded-full bg-green-800 hover:bg-green-700 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 border border-green-600/30"
+        className="fixed right-2 z-40 w-9 h-9 rounded-full bg-green-800 hover:bg-green-700 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 border border-green-600/30"
+        style={{ bottom: "max(4.5rem, calc(4.5rem + env(safe-area-inset-bottom)))" }}
       >
         {open ? (
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -443,7 +444,7 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-16 right-2 z-50 w-64 sm:w-72 bg-gray-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-green-800/40 flex flex-col overflow-hidden animate-chat-open" style={{ maxHeight: "20rem" }}>
+        <div className="fixed right-2 z-50 w-64 sm:w-72 bg-gray-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-green-800/40 flex flex-col overflow-hidden animate-chat-open" style={{ bottom: "max(7rem, calc(7rem + env(safe-area-inset-bottom)))", maxHeight: "18rem" }}>
           {/* Header */}
           <div className="px-4 py-2.5 bg-black/40 border-b border-green-800/30 flex items-center justify-between">
             <span className="text-amber-200 font-bold text-sm">{t.chat}</span>
@@ -1243,33 +1244,28 @@ function GameInner({ lang, setLang }) {
       <div className="flex-1 flex pb-2 overflow-hidden">
 
         {/* Left sidebar: Trump + Stock */}
-        <div className="flex flex-col items-center justify-center gap-4 px-2 sm:px-4 py-3 border-r border-green-900/30 bg-black/15 flex-shrink-0 w-24 sm:w-32">
+        <div className="flex flex-col items-center justify-center gap-3 px-1 sm:px-3 py-2 border-r border-green-900/30 bg-black/15 flex-shrink-0 w-16 sm:w-28">
           {/* Trump */}
           {gameState?.trumpCard && (
             <div className="flex flex-col items-center">
-              <span className="text-amber-300/90 text-xs sm:text-sm font-bold mb-1.5 tracking-wide">{t.trump}</span>
+              <span className="text-amber-300/90 text-[10px] sm:text-sm font-bold mb-1 tracking-wide">{t.trump}</span>
               <div className="trump-glow rounded-lg">
-                <Card card={gameState.trumpCard} size="medium" />
+                <Card card={gameState.trumpCard} size="small" />
               </div>
             </div>
           )}
           {/* Stock */}
           <div className="flex flex-col items-center">
-            <span className="text-green-300/80 text-xs sm:text-sm font-bold mb-1.5 tracking-wide">{t.stock}</span>
+            <span className="text-green-300/80 text-[10px] sm:text-sm font-bold mb-1 tracking-wide">{t.stock}</span>
             <div className="relative">
               {gameState?.stock?.length > 0 ? (
                 <>
-                  {/* Stacked stock cards */}
-                  {Array.from({ length: Math.min(3, Math.ceil(gameState.stock.length / 10)) }).map((_, i) => (
-                    <div key={`stk-${i}`} className="absolute w-14 sm:w-16 h-[4.9rem] sm:h-[5.6rem] rounded-lg border border-gray-600"
-                      style={{ background: CARD_BACK, top: -i * 2, left: i * 1.5, zIndex: i }} />
-                  ))}
-                  <Card faceDown size="medium" />
-                  <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-black/80 text-amber-200 text-xs font-bold px-2 py-0.5 rounded-full z-10">{gameState.stock.length}</span>
+                  <Card faceDown size="small" />
+                  <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-black/80 text-amber-200 text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10">{gameState.stock.length}</span>
                 </>
               ) : (
-                <div className="w-14 sm:w-16 h-[4.9rem] sm:h-[5.6rem] rounded-lg border-2 border-dashed border-green-800/30 flex items-center justify-center">
-                  <span className="text-green-700/50 text-xs">{t.empty}</span>
+                <div className="w-10 sm:w-14 h-[3.5rem] sm:h-[4.9rem] rounded-lg border-2 border-dashed border-green-800/30 flex items-center justify-center">
+                  <span className="text-green-700/50 text-[10px]">{t.empty}</span>
                 </div>
               )}
             </div>
@@ -1277,8 +1273,8 @@ function GameInner({ lang, setLang }) {
           {/* Last trick badge */}
           {gameState?.lastTrick && (
             <div className="flex flex-col items-center">
-              <span className="text-green-300/80 text-xs font-semibold mb-1">{t.lastTrick}</span>
-              <div className={`rounded-lg px-2 py-1 text-xs font-bold ${gameState.lastTrick.winner === playerIdx ? "bg-green-800/60 text-green-200" : "bg-red-900/50 text-red-200"}`}>
+              <span className="text-green-300/80 text-[10px] font-semibold mb-0.5">{t.lastTrick}</span>
+              <div className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${gameState.lastTrick.winner === playerIdx ? "bg-green-800/60 text-green-200" : "bg-red-900/50 text-red-200"}`}>
                 {gameState.lastTrick.winner === playerIdx ? t.youWon : t.oppWon}
               </div>
             </div>
@@ -1289,27 +1285,15 @@ function GameInner({ lang, setLang }) {
         <div className="flex-1 flex flex-col justify-between px-2 sm:px-4 min-w-0">
 
           {/* Opponent hand + pile */}
-          <div className="flex items-center justify-center gap-2 py-1">
-            <div className="flex flex-col items-center flex-shrink-0">
-              <span className="text-green-300/60 text-[9px] font-semibold">{t.oppPile}</span>
-              <div className={`relative w-8 h-[2.8rem] ${opScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={opScorePile.length}>
-                {opScorePile.length > 0 ? (
-                  <>
-                    {Array.from({ length: Math.min(opScorePile.length, 3) }).map((_, i) => (
-                      <div key={`ops-${i}`} className="absolute w-8 h-[2.8rem] rounded-sm border border-gray-600"
-                        style={{ background: CARD_BACK, top: -i, left: i * 0.4 }} />
-                    ))}
-                    <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-black/80 text-amber-200 text-[9px] font-bold px-1 rounded-full z-10">{opScorePile.length}</span>
-                  </>
-                ) : (
-                  <div className="w-8 h-[2.8rem] rounded-sm border border-dashed border-green-800/25" />
-                )}
-              </div>
+          <div className="flex items-center justify-center gap-1.5 py-1">
+            <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/30 flex-shrink-0 ${opScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={opScorePile.length}>
+              <span className="text-green-400/60 text-[9px]">{t.oppPile}</span>
+              <span className="text-amber-200 text-[10px] font-bold">{opScorePile.length}</span>
             </div>
             <div className="flex items-center gap-0.5">
               {opHand.map((_, i) => (
                 <div key={`op-${dealAnimKey}-${i}`} className="animate-slide-deal-opp" style={{ animationDelay: `${i * 200}ms` }}>
-                  <Card faceDown size="small" style={{ marginLeft: i > 0 ? "-0.4rem" : 0 }} />
+                  <Card faceDown size="small" style={{ marginLeft: i > 0 ? "-0.3rem" : 0 }} />
                 </div>
               ))}
             </div>
@@ -1397,41 +1381,27 @@ function GameInner({ lang, setLang }) {
             )}
           </div>
 
-          {/* My hand + pile */}
+          {/* My pile badge + hand */}
           <div className="mt-auto">
-            <div className="flex items-end justify-center gap-2 py-1">
-              <div className="flex flex-col items-center flex-shrink-0 self-end mb-1">
-                <span className="text-green-300/60 text-[9px] font-semibold">{t.yourPile}</span>
-                <div className={`relative w-8 h-[2.8rem] ${myScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={myScorePile.length}>
-                  {myScorePile.length > 0 ? (
-                    <>
-                      {Array.from({ length: Math.min(myScorePile.length, 3) }).map((_, i) => (
-                        <div key={`mps-${i}`} className="absolute w-8 h-[2.8rem] rounded-sm border border-gray-600"
-                          style={{ background: CARD_BACK, top: -i, left: i * 0.4 }} />
-                      ))}
-                      <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-black/80 text-amber-200 text-[9px] font-bold px-1 rounded-full z-10">{myScorePile.length}</span>
-                    </>
-                  ) : (
-                    <div className="w-8 h-[2.8rem] rounded-sm border border-dashed border-green-800/25" />
-                  )}
-                </div>
-              </div>
-              <div className="flex items-end justify-center gap-1 sm:gap-2 hand-fan min-w-0">
-                {myHand.map((c, i) => {
-                  const isNew = newMyCards.includes(c);
-                  return (
-                    <div key={c} className={isNew ? "animate-slide-deal" : ""} style={isNew ? { animationDelay: `${i * 200}ms` } : {}}>
-                      <Card card={c} selected={selectedCards.includes(c)} onClick={() => toggleCard(c)}
-                        disabled={!isMyTurn || !isPlaying || !!gameState?.doublingPhase || inShowdown} />
-                    </div>
-                  );
-                })}
-              </div>
+            <div className={`flex items-center justify-center gap-1.5 mb-0.5 ${myScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={myScorePile.length}>
+              <span className="text-green-400/60 text-[9px]">{t.yourPile}</span>
+              <span className="text-amber-200 text-[10px] font-bold bg-black/30 px-1.5 py-0.5 rounded-md">{myScorePile.length}</span>
+            </div>
+            <div className="flex items-end justify-center gap-1 sm:gap-2 hand-fan">
+              {myHand.map((c, i) => {
+                const isNew = newMyCards.includes(c);
+                return (
+                  <div key={c} className={isNew ? "animate-slide-deal" : ""} style={isNew ? { animationDelay: `${i * 200}ms` } : {}}>
+                    <Card card={c} selected={selectedCards.includes(c)} onClick={() => toggleCard(c)}
+                      disabled={!isMyTurn || !isPlaying || !!gameState?.doublingPhase || inShowdown} />
+                  </div>
+                );
+              })}
             </div>
           </div>
-          {/* Action buttons — fixed bottom strip, separate from card layout */}
+          {/* Action buttons — bottom strip with safe area padding */}
           {(isMyTurn && isPlaying && !gameState?.doublingPhase) && (
-            <div className="flex justify-center gap-3 py-1.5 bg-black/40 border-t border-green-900/30">
+            <div className="flex justify-center gap-3 py-2 bg-black/40 border-t border-green-900/30" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
               {canDouble && !doublingWaiting && (
                 <button onClick={proposeDouble} className="px-4 py-1.5 rounded-lg font-bold text-xs bg-red-800/80 hover:bg-red-700 text-white transition-all shadow border border-red-600/30">
                   {nextStakeLabel(gameState?.stakeLevel || 0)}
