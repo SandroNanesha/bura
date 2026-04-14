@@ -341,13 +341,12 @@ const CARD_SIZES = {
 const CARD_BACK = "repeating-linear-gradient(45deg, #1e3a5f, #1e3a5f 4px, #1a3355 4px, #1a3355 8px)";
 
 function Card({ card, faceDown, selected, onClick, size = "normal", disabled, style, className: extraCls = "" }) {
-  // Legacy compat
   const sizeKey = size === true || size === "small" ? "small" : (size === "medium" ? "medium" : "normal");
   const baseStyle = CARD_SIZES[sizeKey];
 
   if (faceDown) {
     return (
-      <div className={`${baseStyle} flex items-center justify-center border-2 border-gray-600 shadow-md flex-shrink-0 ${extraCls}`}
+      <div className={`${baseStyle} game-card flex items-center justify-center border-2 border-gray-600 flex-shrink-0 ${extraCls}`}
         style={{ background: CARD_BACK, ...style }}>
         <div className="w-3/4 h-3/4 rounded border border-blue-300/30" />
       </div>
@@ -357,23 +356,14 @@ function Card({ card, faceDown, selected, onClick, size = "normal", disabled, st
   const rank = cardRank(card), suit = cardSuit(card), red = isRed(card);
   return (
     <div onClick={disabled ? undefined : onClick}
-      className={`${baseStyle} bg-white border-2 flex flex-col items-center justify-between p-1 sm:p-1.5 shadow-md flex-shrink-0 transition-all duration-300 ease-out
-        ${selected ? "border-yellow-400 -translate-y-3 shadow-yellow-400/50 shadow-lg scale-105" : "border-gray-300"}
-        ${!disabled && onClick ? "cursor-pointer hover:border-blue-400 hover:-translate-y-1 hover:shadow-lg active:translate-y-0 active:scale-95" : ""}
-        ${disabled ? "opacity-60" : ""} ${extraCls}`}
+      className={`${baseStyle} game-card bg-white border-2 flex flex-col items-center justify-between p-1 sm:p-1.5 flex-shrink-0
+        ${selected ? "border-yellow-400 -translate-y-3 card-selected scale-105" : "border-gray-300"}
+        ${!disabled && onClick ? "hover:border-blue-400 active:scale-95" : "cursor-default"}
+        ${disabled ? "opacity-60 !cursor-default" : ""} ${extraCls}`}
       style={style}>
       <div className={`font-bold leading-none ${red ? "text-red-600" : "text-gray-900"}`}>{rank}</div>
       <div className={`text-lg sm:text-2xl leading-none ${red ? "text-red-600" : "text-gray-900"}`}>{suit}</div>
       <div className={`font-bold leading-none rotate-180 ${red ? "text-red-600" : "text-gray-900"}`}>{rank}</div>
-    </div>
-  );
-}
-
-// Trick card with entrance animation
-function TrickCard({ card, size = "small", delay = 0 }) {
-  return (
-    <div className="animate-trick-enter" style={{ animationDelay: `${delay}ms` }}>
-      <Card card={card} size={size} />
     </div>
   );
 }
@@ -503,14 +493,17 @@ function GameInner({ lang, setLang }) {
 
   const [joinCode, setJoinCode] = useState("");
 
+  const leadPhaseRef = useRef(gameState?.leadPhase);
+  useEffect(() => { leadPhaseRef.current = gameState?.leadPhase; }, [gameState?.leadPhase]);
+
   const toggleCard = useCallback((card) => {
     setSelectedCards((prev) => {
       if (prev.includes(card)) return prev.filter((c) => c !== card);
       if (prev.length >= 3) return prev;
-      if (gameState?.leadPhase && prev.length > 0 && cardSuit(card) !== cardSuit(prev[0])) return prev;
+      if (leadPhaseRef.current && prev.length > 0 && cardSuit(card) !== cardSuit(prev[0])) return prev;
       return [...prev, card];
     });
-  }, [gameState?.leadPhase]);
+  }, []);
 
   const checkSpecials = useCallback((state, t) => {
     for (let i = 0; i < 2; i++) {
@@ -576,25 +569,64 @@ function GameInner({ lang, setLang }) {
       const leaderIdx = state.currentTrick.leaderIdx;
       const tr = resolveTrick(state.currentTrick.lead, state.currentTrick.response, state.trumpSuit);
       const tw = tr === 0 ? leaderIdx : 1 - leaderIdx;
-      state.lastTrick = { lead: state.currentTrick.lead, response: state.currentTrick.response, leaderIdx, winner: tw };
-      state.scorePiles[tw] = [...state.scorePiles[tw], ...state.currentTrick.lead, ...state.currentTrick.response];
-      state.turn = tw;
-      replenishHands(state);
-      const go = checkSpecials(state, t);
-      if (go) { awardHandPoints(state, state.handWinner); }
-      else if (state.hands[0].length === 0 && state.hands[1].length === 0) {
-        const p0 = pilePoints(state.scorePiles[0]), p1 = pilePoints(state.scorePiles[1]);
-        state.handPhase = "handover";
-        if (p0 > p1) { state.handWinner = 0; state.handWinReason = t.winsWithPts(p0, p1); }
-        else if (p1 > p0) { state.handWinner = 1; state.handWinReason = t.winsWithPts(p1, p0); }
-        else { state.handWinner = -1; state.handWinReason = t.drawRedeal; }
-        awardHandPoints(state, state.handWinner);
-      } else { state.leadPhase = true; state.currentTrick = { lead: [], response: [], leaderIdx: null }; }
+
+      // Enter showdown: keep trick visible for both players before resolving
+      state.trickShowdown = {
+        lead: state.currentTrick.lead,
+        response: state.currentTrick.response,
+        leaderIdx,
+        winner: tw,
+        resolveAt: Date.now() + 2500,
+      };
       state.moveCount++; state.lastActivity[myIdx] = Date.now();
     }
     setSelectedCards([]); setGameState(state);
     await saveGameState(gameId, state);
   }, [gameState, playerIdx, selectedCards, gameId, checkSpecials, awardHandPoints, t]);
+
+  // ── Resolve trick showdown after delay ──
+  const resolveTrickShowdown = useCallback(async () => {
+    if (!gameState || !gameId || !gameState.trickShowdown) return;
+    const sd = gameState.trickShowdown;
+    const state = {
+      ...gameState,
+      hands: gameState.hands.map(h => [...h]),
+      stock: [...gameState.stock],
+      scorePiles: gameState.scorePiles.map(p => [...p]),
+      matchScores: [...gameState.matchScores],
+    };
+
+    state.lastTrick = { lead: sd.lead, response: sd.response, leaderIdx: sd.leaderIdx, winner: sd.winner };
+    state.scorePiles[sd.winner] = [...state.scorePiles[sd.winner], ...sd.lead, ...sd.response];
+    state.turn = sd.winner;
+    state.trickShowdown = null;
+    state.currentTrick = { lead: [], response: [], leaderIdx: null };
+
+    replenishHands(state);
+    const go = checkSpecials(state, t);
+    if (go) { awardHandPoints(state, state.handWinner); }
+    else if (state.hands[0].length === 0 && state.hands[1].length === 0) {
+      const p0 = pilePoints(state.scorePiles[0]), p1 = pilePoints(state.scorePiles[1]);
+      state.handPhase = "handover";
+      if (p0 > p1) { state.handWinner = 0; state.handWinReason = t.winsWithPts(p0, p1); }
+      else if (p1 > p0) { state.handWinner = 1; state.handWinReason = t.winsWithPts(p1, p0); }
+      else { state.handWinner = -1; state.handWinReason = t.drawRedeal; }
+      awardHandPoints(state, state.handWinner);
+    } else { state.leadPhase = true; }
+
+    state.moveCount++;
+    setGameState(state);
+    await saveGameState(gameId, state);
+  }, [gameState, gameId, checkSpecials, awardHandPoints, t]);
+
+  // Auto-resolve showdown after timer
+  useEffect(() => {
+    if (!gameState?.trickShowdown) return;
+    const remaining = gameState.trickShowdown.resolveAt - Date.now();
+    const delay = Math.max(remaining, 100);
+    const timer = setTimeout(() => { resolveTrickShowdown(); }, delay);
+    return () => clearTimeout(timer);
+  }, [gameState?.trickShowdown?.resolveAt, resolveTrickShowdown]);
 
   const claim31 = useCallback(async () => {
     if (!gameState || playerIdx === null) return;
@@ -760,15 +792,19 @@ function GameInner({ lang, setLang }) {
   }
 
   // ── GAME SCREEN ──
-  const trickLead = gameState?.currentTrick?.lead || [];
-  const trickResponse = gameState?.currentTrick?.response || [];
-  const leaderIdx = gameState?.currentTrick?.leaderIdx;
+  const sd = gameState?.trickShowdown;
+  const trickLead = sd ? sd.lead : (gameState?.currentTrick?.lead || []);
+  const trickResponse = sd ? sd.response : (gameState?.currentTrick?.response || []);
+  const leaderIdx = sd ? sd.leaderIdx : gameState?.currentTrick?.leaderIdx;
+  const showdownWinner = sd ? sd.winner : null;
+
   let myTrickCards = [], opTrickCards = [];
   if (leaderIdx === playerIdx) { myTrickCards = trickLead; opTrickCards = trickResponse; }
   else if (leaderIdx === 1 - playerIdx) { opTrickCards = trickLead; myTrickCards = trickResponse; }
 
   const isPlaying = gameState?.handPhase === "playing" && gameState?.phase === "playing";
-  const canPlay = isMyTurn && selectedCards.length > 0 && isPlaying && !gameState?.doublingPhase;
+  const inShowdown = !!sd;
+  const canPlay = isMyTurn && selectedCards.length > 0 && isPlaying && !gameState?.doublingPhase && !inShowdown;
   const reqResp = !gameState?.leadPhase ? (gameState?.currentTrick?.requiredCount || trickLead.length) : 0;
   const doublingForMe = gameState?.doublingPhase && gameState.doublingPhase.proposer !== playerIdx;
   const doublingWaiting = gameState?.doublingPhase && gameState.doublingPhase.proposer === playerIdx;
@@ -917,46 +953,60 @@ function GameInner({ lang, setLang }) {
             </div>
             <div className="flex items-center gap-0.5">
               {opHand.map((_, i) => (
-                <div key={`op-${i}`} className="animate-card-deal" style={{ animationDelay: `${i * 80}ms` }}>
+                <div key={`op-${i}`} className="animate-slide-deal" style={{ animationDelay: `${i * 150}ms` }}>
                   <Card faceDown size="small" style={{ marginLeft: i > 0 ? "-0.4rem" : 0 }} />
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Opponent trick cards */}
-          {opTrickCards.length > 0 && (
-            <div className="flex justify-center gap-1.5 mb-1">
-              {opTrickCards.map((c, i) => (
-                <div key={`opt-${c}`} className="animate-trick-enter-opp" style={{ animationDelay: `${i * 100}ms` }}>
-                  <Card card={c} size="small" />
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Trick area */}
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 relative min-h-[10rem]">
+            {/* Showdown winner badge */}
+            {inShowdown && (
+              <div className="absolute top-1 left-1/2 z-20 animate-badge-bounce">
+                <span className={`px-4 py-1.5 rounded-full text-sm font-bold shadow-lg ${showdownWinner === playerIdx ? "bg-green-600 text-white" : "bg-red-700 text-white"}`}>
+                  {showdownWinner === playerIdx ? t.youWon : t.oppWon}
+                </span>
+              </div>
+            )}
 
-          {/* Center trick area spacer */}
-          <div className="flex-1 min-h-4" />
+            {/* Opponent trick cards */}
+            {opTrickCards.length > 0 && (
+              <div className={`flex justify-center gap-2 ${inShowdown ? "animate-showdown-glow" : ""}`}>
+                {opTrickCards.map((c, i) => (
+                  <div key={`opt-${c}`} className="animate-trick-enter-opp" style={{ animationDelay: `${i * 120}ms` }}>
+                    <Card card={c} size="small" className={inShowdown && showdownWinner !== playerIdx ? "ring-2 ring-red-400" : ""} />
+                  </div>
+                ))}
+              </div>
+            )}
 
-          {/* My trick cards */}
-          {myTrickCards.length > 0 && (
-            <div className="flex justify-center gap-1.5 mt-1">
-              {myTrickCards.map((c, i) => (
-                <div key={`myt-${c}`} className="animate-trick-enter" style={{ animationDelay: `${i * 100}ms` }}>
-                  <Card card={c} size="small" />
-                </div>
-              ))}
-            </div>
-          )}
+            {/* VS divider during showdown */}
+            {inShowdown && opTrickCards.length > 0 && myTrickCards.length > 0 && (
+              <div className="text-amber-400/60 text-xs font-bold">VS</div>
+            )}
+
+            {/* My trick cards */}
+            {myTrickCards.length > 0 && (
+              <div className={`flex justify-center gap-2 ${inShowdown ? "animate-showdown-glow" : ""}`}>
+                {myTrickCards.map((c, i) => (
+                  <div key={`myt-${c}`} className="animate-trick-enter" style={{ animationDelay: `${i * 120}ms` }}>
+                    <Card card={c} size="small" className={inShowdown && showdownWinner === playerIdx ? "ring-2 ring-green-400" : ""} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* My hand + pile row */}
           <div className="mt-auto">
             <div className="flex items-end justify-center gap-3 py-2">
-              <div className="flex items-end justify-center gap-1 sm:gap-2">
+              <div className="flex items-end justify-center gap-1 sm:gap-2 hand-fan">
                 {myHand.map((c, i) => (
-                  <div key={c} className="animate-card-deal" style={{ animationDelay: `${i * 80}ms` }}>
+                  <div key={c} className="animate-slide-deal" style={{ animationDelay: `${i * 150}ms` }}>
                     <Card card={c} selected={selectedCards.includes(c)} onClick={() => toggleCard(c)}
-                      disabled={!isMyTurn || !isPlaying || !!gameState?.doublingPhase} />
+                      disabled={!isMyTurn || !isPlaying || !!gameState?.doublingPhase || inShowdown} />
                   </div>
                 ))}
               </div>
