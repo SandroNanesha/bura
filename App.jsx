@@ -81,6 +81,9 @@ const STRINGS = {
     waitingForBoth: "Waiting for both players\u2026",
     yourPile: "Your Pile",
     oppPile: "Opp Pile",
+    chat: "Chat",
+    typeMessage: "Type a message\u2026",
+    send: "Send",
   },
   ka: {
     greeting: "\u10DB\u10DD\u10D2\u10D4\u10E1\u10D0\u10DA\u10DB\u10D4\u10D1\u10D8\u10D7 \u10DB\u10D0\u10E0\u10D8\u10D0\u10DB, \u10E1\u10D0\u10DC\u10D0\u10DB \u10D7\u10D0\u10DB\u10D0\u10E8\u10E1 \u10D3\u10D0\u10D8\u10EC\u10E7\u10D4\u10D1\u10D7 \u10D3\u10D0\u10E0\u10EC\u10DB\u10E3\u10DC\u10D3\u10D8\u10D7 \u10E0\u10DD\u10DB \u10E1\u10D0\u10D1\u10D0\u10DC\u10D8 \u10E9\u10D8\u10EE\u10DD\u10DA\u10E8\u10D8\u10D0 \u10E9\u10D0\u10E1\u10DB\u10E3\u10DA\u10D8. \u10EC\u10D8\u10DC\u10D0\u10D0\u10E6\u10DB\u10D3\u10D4\u10D2 \u10E8\u10D4\u10DB\u10D7\u10EE\u10D5\u10D4\u10D5\u10D0\u10E8\u10D8 \u10D7\u10E5\u10D5\u10D4\u10DC \u10D5\u10D4\u10E0 \u10DB\u10DD\u10D0\u10EE\u10D4\u10E0\u10EE\u10D4\u10D1\u10D7 \u10D7\u10D0\u10DB\u10D0\u10E8\u10E8\u10D8 \u10DB\u10DD\u10DC\u10D0\u10EC\u10D8\u10DA\u10D4\u10DD\u10D1\u10D0\u10E1.",
@@ -161,6 +164,9 @@ const STRINGS = {
     waitingForBoth: "\u10DD\u10E0\u10D8\u10D5\u10D4 \u10DB\u10DD\u10D7\u10D0\u10DB\u10D0\u10E8\u10D4\u10E1 \u10D4\u10DA\u10DD\u10D3\u10D4\u10D1\u10D0\u2026",
     yourPile: "\u10E8\u10D4\u10DC\u10D8",
     oppPile: "\u10DB\u10DD\u10EC",
+    chat: "\u10E9\u10D0\u10E2\u10D8",
+    typeMessage: "\u10E8\u10D4\u10E2\u10E7\u10DD\u10D1\u10D8\u10DC\u10D4\u10D1\u10D0\u2026",
+    send: "\u10D2\u10D0\u10D2\u10D6\u10D0\u10D5\u10DC\u10D0",
   },
 };
 
@@ -274,6 +280,7 @@ function initMatchState(seed, playTo, dealer) {
     players: 2,
     lastActivity: [Date.now(), Date.now()],
     tabIds: [null, null],
+    chat: [],
   };
 }
 
@@ -332,6 +339,151 @@ async function loadGameState(gameId) {
     const data = await window.storage.getItem(storageKey(gameId), { shared: true });
     return data ? JSON.parse(data) : null;
   } catch (e) { console.error("Failed to load:", e); return null; }
+}
+
+// ─── Chat Component ─────────────────────────────────────────────────────────
+function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [readCount, setReadCount] = useState(0);
+  const [toasts, setToasts] = useState([]);
+  const messagesEndRef = useRef(null);
+  const toastTimeoutRef = useRef(null);
+
+  const messages = gameState?.chat || [];
+  const unread = Math.max(0, messages.length - readCount);
+
+  // Auto-scroll to bottom when chat opens or new messages arrive
+  useEffect(() => {
+    if (open && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [open, messages.length]);
+
+  // Mark as read when chat is open
+  useEffect(() => {
+    if (open) setReadCount(messages.length);
+  }, [open, messages.length]);
+
+  // Show toast for incoming opponent messages when chat is closed
+  const prevMsgCountRef = useRef(messages.length);
+  useEffect(() => {
+    if (messages.length > prevMsgCountRef.current) {
+      const newMsgs = messages.slice(prevMsgCountRef.current);
+      const opMsgs = newMsgs.filter(m => m.from !== playerIdx);
+      if (opMsgs.length > 0 && !open) {
+        const toast = { id: Date.now(), text: opMsgs[opMsgs.length - 1].text };
+        setToasts(prev => [...prev, toast]);
+        // Auto-dismiss after 4s
+        setTimeout(() => {
+          setToasts(prev => prev.filter(t => t.id !== toast.id));
+        }, 4000);
+      }
+    }
+    prevMsgCountRef.current = messages.length;
+  }, [messages.length, playerIdx, open]);
+
+  const sendMessage = useCallback(async () => {
+    if (!msg.trim() || !gameId || playerIdx === null) return;
+    const newMsg = { from: playerIdx, text: msg.trim(), ts: Date.now() };
+    const newState = {
+      ...gameState,
+      chat: [...(gameState.chat || []), newMsg],
+    };
+    setGameState(newState);
+    saveGameState(gameId, newState);
+    setMsg("");
+  }, [msg, gameId, playerIdx, gameState, setGameState]);
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }, [sendMessage]);
+
+  return (
+    <>
+      {/* Toast banners for incoming messages */}
+      <div className="fixed bottom-20 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+        {toasts.map(toast => (
+          <div key={toast.id} className="bg-black/80 text-white text-sm px-4 py-2 rounded-xl shadow-lg backdrop-blur-sm border border-green-800/40 max-w-[16rem] animate-toast-in pointer-events-auto"
+            onClick={() => { setOpen(true); setToasts(prev => prev.filter(t => t.id !== toast.id)); }}>
+            <span className="text-amber-300 font-bold text-xs mr-1">{t.opp}:</span>
+            {toast.text}
+          </div>
+        ))}
+      </div>
+
+      {/* Chat toggle button */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="fixed bottom-4 right-4 z-50 w-12 h-12 rounded-full bg-green-800 hover:bg-green-700 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 border border-green-600/30"
+      >
+        {open ? (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        ) : (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        )}
+        {unread > 0 && !open && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center animate-bounce-in">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
+      </button>
+
+      {/* Chat panel */}
+      {open && (
+        <div className="fixed bottom-20 right-4 z-50 w-72 sm:w-80 bg-gray-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-green-800/40 flex flex-col overflow-hidden animate-chat-open" style={{ maxHeight: "24rem" }}>
+          {/* Header */}
+          <div className="px-4 py-2.5 bg-black/40 border-b border-green-800/30 flex items-center justify-between">
+            <span className="text-amber-200 font-bold text-sm">{t.chat}</span>
+            <span className="text-green-400/60 text-xs">{messages.length} msg</span>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2" style={{ minHeight: "8rem", maxHeight: "16rem" }}>
+            {messages.length === 0 && (
+              <p className="text-center text-green-600/50 text-xs py-8">No messages yet</p>
+            )}
+            {messages.map((m, i) => {
+              const isMe = m.from === playerIdx;
+              return (
+                <div key={i} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[80%] px-3 py-1.5 rounded-xl text-sm ${
+                    isMe
+                      ? "bg-green-700/80 text-white rounded-br-sm"
+                      : "bg-gray-700/80 text-green-100 rounded-bl-sm"
+                  }`}>
+                    {m.text}
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <div className="px-3 py-2 bg-black/30 border-t border-green-800/30 flex gap-2">
+            <input
+              type="text"
+              value={msg}
+              onChange={e => setMsg(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={t.typeMessage}
+              maxLength={200}
+              className="flex-1 bg-gray-800/80 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-green-600/50 placeholder:text-gray-500"
+            />
+            <button
+              onClick={sendMessage}
+              disabled={!msg.trim()}
+              className="px-3 py-2 bg-green-700 hover:bg-green-600 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              {t.send}
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
 // ─── Card Component ──────────────────────────────────────────────────────────
@@ -403,6 +555,11 @@ function GameInner({ lang, setLang }) {
   const [opponentConnected, setOpponentConnected] = useState(false);
   const [opponentEverConnected, setOpponentEverConnected] = useState(false);
   const [lobbyPlayTo, setLobbyPlayTo] = useState(11);
+  const [collectingTrick, setCollectingTrick] = useState(null); // { cards, winner } during collect animation
+  const prevHandRef = useRef([]);
+  const prevOppHandRef = useRef([]);
+  const [dealAnimKey, setDealAnimKey] = useState(0);
+  const [dealingCards, setDealingCards] = useState(null); // { myCards: [], opCards: [], trumpCard, phase: 0..6, done: false }
   const playerIdxRef = useRef(playerIdx);
   const gameIdRef = useRef(gameId);
   const phaseRef = useRef(phase);
@@ -613,25 +770,35 @@ function GameInner({ lang, setLang }) {
           response: state.currentTrick.response,
           leaderIdx,
           winner: tw,
-          resolveAt: Date.now() + 4000,
+          resolveAt: Date.now() + 3000,
         };
       } else {
-        // Leader wins (responder couldn't beat) — resolve immediately, no showdown
-        state.lastTrick = { lead: state.currentTrick.lead, response: state.currentTrick.response, leaderIdx, winner: tw };
-        state.scorePiles[tw] = [...state.scorePiles[tw], ...state.currentTrick.lead, ...state.currentTrick.response];
-        state.turn = tw;
-        state.currentTrick = { lead: [], response: [], leaderIdx: null };
-        replenishHands(state);
-        const go = checkSpecials(state, t);
-        if (go) { awardHandPoints(state, state.handWinner); }
-        else if (state.hands[0].length === 0 && state.hands[1].length === 0) {
-          const p0 = pilePoints(state.scorePiles[0]), p1 = pilePoints(state.scorePiles[1]);
-          state.handPhase = "handover";
-          if (p0 > p1) { state.handWinner = 0; state.handWinReason = t.winsWithPts(p0, p1); }
-          else if (p1 > p0) { state.handWinner = 1; state.handWinReason = t.winsWithPts(p1, p0); }
-          else { state.handWinner = -1; state.handWinReason = t.drawRedeal; }
-          awardHandPoints(state, state.handWinner);
-        } else { state.leadPhase = true; }
+        // Leader wins (responder couldn't beat) — show collect animation, then resolve
+        const trickCards = [...state.currentTrick.lead, ...state.currentTrick.response];
+        setCollectingTrick({ lead: state.currentTrick.lead, response: state.currentTrick.response, leaderIdx, winner: tw });
+        // Delay actual state resolution to let collect animation play
+        setTimeout(() => {
+          setCollectingTrick(null);
+          const freshState = { ...state };
+          freshState.lastTrick = { lead: state.currentTrick.lead, response: state.currentTrick.response, leaderIdx, winner: tw };
+          freshState.scorePiles[tw] = [...freshState.scorePiles[tw], ...trickCards];
+          freshState.turn = tw;
+          freshState.currentTrick = { lead: [], response: [], leaderIdx: null };
+          replenishHands(freshState);
+          const go = checkSpecials(freshState, t);
+          if (go) { awardHandPoints(freshState, freshState.handWinner); }
+          else if (freshState.hands[0].length === 0 && freshState.hands[1].length === 0) {
+            const p0 = pilePoints(freshState.scorePiles[0]), p1 = pilePoints(freshState.scorePiles[1]);
+            freshState.handPhase = "handover";
+            if (p0 > p1) { freshState.handWinner = 0; freshState.handWinReason = t.winsWithPts(p0, p1); }
+            else if (p1 > p0) { freshState.handWinner = 1; freshState.handWinReason = t.winsWithPts(p1, p0); }
+            else { freshState.handWinner = -1; freshState.handWinReason = t.drawRedeal; }
+            awardHandPoints(freshState, freshState.handWinner);
+          } else { freshState.leadPhase = true; }
+          freshState.moveCount++;
+          setGameState(freshState);
+          saveGameState(gameId, freshState);
+        }, 700);
       }
       state.moveCount++; state.lastActivity[myIdx] = Date.now();
     }
@@ -643,35 +810,46 @@ function GameInner({ lang, setLang }) {
   const resolveTrickShowdown = useCallback(async () => {
     if (!gameState || !gameId || !gameState.trickShowdown) return;
     const sd = gameState.trickShowdown;
-    const state = {
-      ...gameState,
-      hands: gameState.hands.map(h => [...h]),
-      stock: [...gameState.stock],
-      scorePiles: gameState.scorePiles.map(p => [...p]),
-      matchScores: [...gameState.matchScores],
-    };
 
-    state.lastTrick = { lead: sd.lead, response: sd.response, leaderIdx: sd.leaderIdx, winner: sd.winner };
-    state.scorePiles[sd.winner] = [...state.scorePiles[sd.winner], ...sd.lead, ...sd.response];
-    state.turn = sd.winner;
-    state.trickShowdown = null;
-    state.currentTrick = { lead: [], response: [], leaderIdx: null };
+    // Start collect animation
+    setCollectingTrick({ lead: sd.lead, response: sd.response, leaderIdx: sd.leaderIdx, winner: sd.winner });
 
-    replenishHands(state);
-    const go = checkSpecials(state, t);
-    if (go) { awardHandPoints(state, state.handWinner); }
-    else if (state.hands[0].length === 0 && state.hands[1].length === 0) {
-      const p0 = pilePoints(state.scorePiles[0]), p1 = pilePoints(state.scorePiles[1]);
-      state.handPhase = "handover";
-      if (p0 > p1) { state.handWinner = 0; state.handWinReason = t.winsWithPts(p0, p1); }
-      else if (p1 > p0) { state.handWinner = 1; state.handWinReason = t.winsWithPts(p1, p0); }
-      else { state.handWinner = -1; state.handWinReason = t.drawRedeal; }
-      awardHandPoints(state, state.handWinner);
-    } else { state.leadPhase = true; }
+    // Clear showdown immediately so it stops rendering
+    const preState = { ...gameState, trickShowdown: null };
+    setGameState(preState);
 
-    state.moveCount++;
-    setGameState(state);
-    saveGameState(gameId, state); // fire-and-forget
+    // After collect animation, resolve the trick
+    setTimeout(() => {
+      setCollectingTrick(null);
+      const state = {
+        ...preState,
+        hands: preState.hands.map(h => [...h]),
+        stock: [...preState.stock],
+        scorePiles: preState.scorePiles.map(p => [...p]),
+        matchScores: [...preState.matchScores],
+      };
+
+      state.lastTrick = { lead: sd.lead, response: sd.response, leaderIdx: sd.leaderIdx, winner: sd.winner };
+      state.scorePiles[sd.winner] = [...state.scorePiles[sd.winner], ...sd.lead, ...sd.response];
+      state.turn = sd.winner;
+      state.currentTrick = { lead: [], response: [], leaderIdx: null };
+
+      replenishHands(state);
+      const go = checkSpecials(state, t);
+      if (go) { awardHandPoints(state, state.handWinner); }
+      else if (state.hands[0].length === 0 && state.hands[1].length === 0) {
+        const p0 = pilePoints(state.scorePiles[0]), p1 = pilePoints(state.scorePiles[1]);
+        state.handPhase = "handover";
+        if (p0 > p1) { state.handWinner = 0; state.handWinReason = t.winsWithPts(p0, p1); }
+        else if (p1 > p0) { state.handWinner = 1; state.handWinReason = t.winsWithPts(p1, p0); }
+        else { state.handWinner = -1; state.handWinReason = t.drawRedeal; }
+        awardHandPoints(state, state.handWinner);
+      } else { state.leadPhase = true; }
+
+      state.moveCount++;
+      setGameState(state);
+      saveGameState(gameId, state);
+    }, 700);
   }, [gameState, gameId, checkSpecials, awardHandPoints, t]);
 
   // Auto-resolve showdown after timer
@@ -682,6 +860,56 @@ function GameInner({ lang, setLang }) {
     const timer = setTimeout(() => { resolveTrickShowdown(); }, delay);
     return () => clearTimeout(timer);
   }, [gameState?.trickShowdown?.resolveAt, resolveTrickShowdown]);
+
+  // ── Deal animation: when handPhase becomes "dealing", animate cards one by one ──
+  useEffect(() => {
+    if (!gameState || gameState.handPhase !== "dealing" || !gameId || playerIdx === null) return;
+    const myIdx = playerIdx;
+    const opIdx = 1 - playerIdx;
+    const myCards = gameState.hands[myIdx] || [];
+    const opCards = gameState.hands[opIdx] || [];
+    const dealerIdx = gameState.dealer;
+    // Deal order: non-dealer gets first card, alternate, 3 each = 6 deals
+    const firstIdx = 1 - dealerIdx;
+    const sequence = [];
+    for (let i = 0; i < 3; i++) {
+      sequence.push({ target: firstIdx, cardIdx: i });
+      sequence.push({ target: 1 - firstIdx, cardIdx: i });
+    }
+    // Start with empty hands showing, reveal cards one at a time
+    setDealingCards({ myCards: [], opCards: [], trumpCard: gameState.trumpCard, done: false });
+
+    const timers = [];
+    sequence.forEach((step, i) => {
+      timers.push(setTimeout(() => {
+        setDealingCards(prev => {
+          if (!prev) return prev;
+          const next = { ...prev, myCards: [...prev.myCards], opCards: [...prev.opCards] };
+          if (step.target === myIdx) {
+            next.myCards.push(myCards[step.cardIdx]);
+          } else {
+            next.opCards.push(opCards[step.cardIdx]);
+          }
+          return next;
+        });
+      }, 300 + i * 350)); // 350ms between each card deal
+    });
+
+    // After all cards dealt, brief pause then transition to playing
+    timers.push(setTimeout(() => {
+      setDealingCards(prev => prev ? { ...prev, done: true } : prev);
+    }, 300 + sequence.length * 350 + 400));
+
+    timers.push(setTimeout(() => {
+      setDealingCards(null);
+      const state = { ...gameState, handPhase: "playing" };
+      state.moveCount++;
+      setGameState(state);
+      saveGameState(gameId, state);
+    }, 300 + sequence.length * 350 + 800));
+
+    return () => timers.forEach(clearTimeout);
+  }, [gameState?.handPhase === "dealing" ? gameState.moveCount : null, gameId, playerIdx]);
 
   const claim31 = useCallback(async () => {
     if (!gameState || playerIdx === null) return;
@@ -765,7 +993,7 @@ function GameInner({ lang, setLang }) {
     const state = { ...gameState, playersReady: [...(gameState.playersReady || [false, false])] };
     state.playersReady[playerIdx] = true;
     if (state.playersReady[0] && state.playersReady[1]) {
-      state.handPhase = "playing";
+      state.handPhase = "dealing";
       state.isNewMatch = false;
     }
     state.moveCount++;
@@ -786,6 +1014,21 @@ function GameInner({ lang, setLang }) {
   const opScorePile = gameState?.scorePiles?.[playerIdx === null ? 0 : 1 - playerIdx] || [];
   const myMatchScore = gameState?.matchScores?.[playerIdx] || 0;
   const opMatchScore = gameState?.matchScores?.[playerIdx === null ? 0 : 1 - playerIdx] || 0;
+
+  // Detect new cards dealt to hands — bump dealAnimKey to re-trigger deal animation
+  const newMyCards = useMemo(() => myHand.filter(c => !prevHandRef.current.includes(c)), [myHand]);
+  const newOpCards = useMemo(() => {
+    const prevLen = prevOppHandRef.current.length;
+    return opHand.length > prevLen ? opHand.length - prevLen : 0;
+  }, [opHand]);
+
+  useEffect(() => {
+    if (newMyCards.length > 0 || newOpCards > 0) {
+      setDealAnimKey(k => k + 1);
+    }
+    prevHandRef.current = myHand;
+    prevOppHandRef.current = opHand;
+  }, [myHand, opHand, newMyCards, newOpCards]);
 
   const TABLE_BG = { background: "radial-gradient(ellipse at center, #1a4d2e 0%, #0d2818 70%, #091a10 100%)" };
 
@@ -862,47 +1105,70 @@ function GameInner({ lang, setLang }) {
   const showdownWinner = sd ? sd.winner : null;
 
   let myTrickCards = [], opTrickCards = [];
-  if (leaderIdx === playerIdx) { myTrickCards = trickLead; opTrickCards = trickResponse; }
-  else if (leaderIdx === 1 - playerIdx) { opTrickCards = trickLead; myTrickCards = trickResponse; }
+  let iAmResponder = false, opIsResponder = false;
+  if (leaderIdx === playerIdx) { myTrickCards = trickLead; opTrickCards = trickResponse; opIsResponder = true; }
+  else if (leaderIdx === 1 - playerIdx) { opTrickCards = trickLead; myTrickCards = trickResponse; iAmResponder = true; }
 
   const isPlaying = gameState?.handPhase === "playing" && gameState?.phase === "playing";
   const inShowdown = !!sd;
-  const canPlay = isMyTurn && selectedCards.length > 0 && isPlaying && !gameState?.doublingPhase && !inShowdown;
+  // Response cards are hidden unless it's a showdown (responder beat the leader)
+  const hideMyResponse = iAmResponder && !inShowdown;
+  const hideOpResponse = opIsResponder && !inShowdown;
+  const canPlay = isMyTurn && selectedCards.length > 0 && isPlaying && !gameState?.doublingPhase && !inShowdown && !collectingTrick;
   const reqResp = !gameState?.leadPhase ? (gameState?.currentTrick?.requiredCount || trickLead.length) : 0;
   const doublingForMe = gameState?.doublingPhase && gameState.doublingPhase.proposer !== playerIdx;
   const doublingWaiting = gameState?.doublingPhase && gameState.doublingPhase.proposer === playerIdx;
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden" style={TABLE_BG}>
-      {/* Match Scoreboard */}
-      <div className="flex items-center justify-center gap-4 px-3 py-2 bg-black/40 border-b border-green-900/40 z-10">
-        <div className="flex items-center gap-2 text-base">
-          <span className="font-bold text-amber-300">{t.you}: {myMatchScore}</span>
-          <span className="text-green-600">|</span>
-          <span className="font-bold text-green-300">{t.opp}: {opMatchScore}</span>
-          <span className="text-green-600">|</span>
-          <span className="text-green-400/70">{t.to} {gameState?.playTo}</span>
-        </div>
-        <div className={`px-3 py-1 rounded-full text-sm font-bold ${gameState?.stakeLevel > 0 ? "bg-red-700/80 text-white" : "bg-black/30 text-green-400/70"}`}>
-          {t.stake}: {stakeDisplayName(gameState?.stakeLevel || 0, t)}
-        </div>
-        <LangToggle lang={lang} setLang={setLang} />
-      </div>
-
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-black/20 border-b border-green-900/30 z-10">
-        <div className="flex items-center gap-2">
-          <span className="text-amber-200 font-bold text-sm">{t.title}</span>
-          <span className="text-green-600 text-xs">#{gameId}</span>
-        </div>
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between px-3 py-2 bg-black/50 border-b border-green-900/40 z-10">
+        {/* Left: score */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
+            <span className="text-amber-200 font-bold text-sm">{t.title}</span>
+            <span className="text-green-700 text-[10px]">#{gameId}</span>
+          </div>
+          <div className="flex items-center bg-black/40 rounded-lg px-2.5 py-1 gap-2">
+            <div className="flex flex-col items-center leading-none">
+              <span className="text-[10px] text-green-400/60">{t.you}</span>
+              <span className="text-lg font-bold text-amber-300">{myMatchScore}</span>
+            </div>
+            <div className="flex flex-col items-center leading-none">
+              <span className="text-[10px] text-green-400/40">/{gameState?.playTo}</span>
+              <span className="text-green-600 text-xs font-bold">vs</span>
+            </div>
+            <div className="flex flex-col items-center leading-none">
+              <span className="text-[10px] text-green-400/60">{t.opp}</span>
+              <span className="text-lg font-bold text-green-300">{opMatchScore}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Center: stake + turn */}
+        <div className="flex flex-col items-center gap-0.5">
+          {gameState?.stakeLevel > 0 && (
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-700/80 text-white">
+              {stakeDisplayName(gameState.stakeLevel, t)}
+            </span>
+          )}
+          {isPlaying && !gameState?.doublingPhase && (
+            <span className={`text-xs font-bold px-3 py-0.5 rounded-full ${isMyTurn ? "bg-amber-600/80 text-white" : "bg-black/30 text-green-400/70"}`}>
+              {isMyTurn ? (gameState?.leadPhase ? t.yourTurnLead : t.yourTurnRespond) : (gameState?.leadPhase ? t.oppTurnLead : t.oppResponding)}
+            </span>
+          )}
+        </div>
+
+        {/* Right: status + actions */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <div className={`w-2 h-2 rounded-full ${opponentConnected ? "bg-green-400" : "bg-red-400 animate-pulse"}`} />
-            <span className={`text-xs ${opponentConnected ? "text-green-300" : "text-red-300"}`}>{opponentConnected ? t.online : t.offline}</span>
+            <span className={`text-[10px] ${opponentConnected ? "text-green-400" : "text-red-300"}`}>{opponentConnected ? t.online : t.offline}</span>
           </div>
           {isPlaying && (
-            <button onClick={claim31} className="px-3 py-1 bg-red-700/80 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition-colors">{t.claim31}</button>
+            <button onClick={claim31} className="px-2 py-1 bg-red-700/80 hover:bg-red-600 text-white text-[10px] font-bold rounded-lg transition-colors leading-none">{t.claim31}</button>
           )}
+          <LangToggle lang={lang} setLang={setLang} />
         </div>
       </div>
 
@@ -916,13 +1182,7 @@ function GameInner({ lang, setLang }) {
         </div>
       )}
 
-      {isPlaying && !gameState?.doublingPhase && (
-        <div className="text-center py-1.5">
-          <span className={`text-sm font-bold px-4 py-1 rounded-full ${isMyTurn ? "bg-amber-600/80 text-white" : "bg-black/30 text-green-400/70"}`}>
-            {isMyTurn ? (gameState?.leadPhase ? t.yourTurnLead : t.yourTurnRespond) : (gameState?.leadPhase ? t.oppTurnLead : t.oppResponding)}
-          </span>
-        </div>
-      )}
+      {/* Turn indicator removed — now shown in header */}
 
       {/* Doubling proposal overlay */}
       {doublingForMe && (
@@ -1016,7 +1276,7 @@ function GameInner({ lang, setLang }) {
             </div>
             <div className="flex items-center gap-0.5">
               {opHand.map((_, i) => (
-                <div key={`op-${i}`} className="animate-slide-deal" style={{ animationDelay: `${i * 150}ms` }}>
+                <div key={`op-${dealAnimKey}-${i}`} className="animate-slide-deal-opp" style={{ animationDelay: `${i * 150}ms` }}>
                   <Card faceDown size="small" style={{ marginLeft: i > 0 ? "-0.4rem" : 0 }} />
                 </div>
               ))}
@@ -1034,12 +1294,52 @@ function GameInner({ lang, setLang }) {
               </div>
             )}
 
+            {/* Collect animation overlay — cards sweep to winner's pile */}
+            {collectingTrick && (() => {
+              const isMyWin = collectingTrick.winner === playerIdx;
+              const collectX = isMyWin ? "40px" : "-40px";
+              const collectY = isMyWin ? "80px" : "-80px";
+              const collectLeaderIsMe = collectingTrick.leaderIdx === playerIdx;
+              const myCollect = collectLeaderIsMe ? collectingTrick.lead : collectingTrick.response;
+              const opCollect = collectLeaderIsMe ? collectingTrick.response : collectingTrick.lead;
+              // Response cards stay face-down during non-showdown collect
+              const opIsResp = !collectLeaderIsMe;
+              const myIsResp = collectLeaderIsMe ? false : true;
+              return (
+                <>
+                  {opCollect.length > 0 && (
+                    <div className="flex justify-center gap-2">
+                      {opCollect.map((c, i) => (
+                        <div key={`col-op-${c}`} className="anim-collect"
+                          style={{ '--collect-x': collectX, '--collect-y': collectY, animationDelay: `${i * 80}ms` }}>
+                          {opIsResp ? <Card faceDown size="small" /> : <Card card={c} size="small" />}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {myCollect.length > 0 && (
+                    <div className="flex justify-center gap-2">
+                      {myCollect.map((c, i) => (
+                        <div key={`col-my-${c}`} className="anim-collect"
+                          style={{ '--collect-x': collectX, '--collect-y': collectY, animationDelay: `${i * 80}ms` }}>
+                          {myIsResp ? <Card faceDown size="small" /> : <Card card={c} size="small" />}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+
             {/* Opponent trick cards */}
-            {opTrickCards.length > 0 && (
+            {!collectingTrick && opTrickCards.length > 0 && (
               <div className={`flex justify-center gap-2 ${inShowdown ? "animate-showdown-glow" : ""}`}>
                 {opTrickCards.map((c, i) => (
                   <div key={`opt-${c}`} className="animate-trick-enter-opp" style={{ animationDelay: `${i * 120}ms` }}>
-                    <Card card={c} size="small" className={inShowdown && showdownWinner !== playerIdx ? "ring-2 ring-red-400" : ""} />
+                    {hideOpResponse
+                      ? <Card faceDown size="small" />
+                      : <Card card={c} size="small" className={inShowdown && showdownWinner !== playerIdx ? "ring-2 ring-red-400" : ""} />
+                    }
                   </div>
                 ))}
               </div>
@@ -1051,11 +1351,14 @@ function GameInner({ lang, setLang }) {
             )}
 
             {/* My trick cards */}
-            {myTrickCards.length > 0 && (
+            {!collectingTrick && myTrickCards.length > 0 && (
               <div className={`flex justify-center gap-2 ${inShowdown ? "animate-showdown-glow" : ""}`}>
                 {myTrickCards.map((c, i) => (
                   <div key={`myt-${c}`} className="animate-trick-enter" style={{ animationDelay: `${i * 120}ms` }}>
-                    <Card card={c} size="small" className={inShowdown && showdownWinner === playerIdx ? "ring-2 ring-green-400" : ""} />
+                    {hideMyResponse
+                      ? <Card faceDown size="small" />
+                      : <Card card={c} size="small" className={inShowdown && showdownWinner === playerIdx ? "ring-2 ring-green-400" : ""} />
+                    }
                   </div>
                 ))}
               </div>
@@ -1066,12 +1369,15 @@ function GameInner({ lang, setLang }) {
           <div className="mt-auto">
             <div className="flex items-end justify-center gap-3 py-2">
               <div className="flex items-end justify-center gap-1 sm:gap-2 hand-fan">
-                {myHand.map((c, i) => (
-                  <div key={c} className="animate-slide-deal" style={{ animationDelay: `${i * 150}ms` }}>
-                    <Card card={c} selected={selectedCards.includes(c)} onClick={() => toggleCard(c)}
-                      disabled={!isMyTurn || !isPlaying || !!gameState?.doublingPhase || inShowdown} />
-                  </div>
-                ))}
+                {myHand.map((c, i) => {
+                  const isNew = newMyCards.includes(c);
+                  return (
+                    <div key={c} className={isNew ? "animate-slide-deal" : ""} style={isNew ? { animationDelay: `${i * 150}ms` } : {}}>
+                      <Card card={c} selected={selectedCards.includes(c)} onClick={() => toggleCard(c)}
+                        disabled={!isMyTurn || !isPlaying || !!gameState?.doublingPhase || inShowdown} />
+                    </div>
+                  );
+                })}
               </div>
               <div className="flex flex-col items-center flex-shrink-0 ml-1">
                 <span className="text-green-300/70 text-[10px] font-semibold mb-0.5">{t.yourPile}</span>
@@ -1108,6 +1414,68 @@ function GameInner({ lang, setLang }) {
           </div>
         </div>
       </div>
+
+      {/* Dealing Animation Overlay */}
+      {dealingCards && (
+        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-50 backdrop-blur-sm">
+          {/* Opponent's dealt cards (top) */}
+          <div className="flex items-center justify-center gap-2 mb-8 h-24">
+            {dealingCards.opCards.map((_, i) => (
+              <div key={`deal-op-${i}`} className="deal-card-enter-opp" style={{ animationDelay: `${i * 50}ms` }}>
+                <Card faceDown size="normal" />
+              </div>
+            ))}
+          </div>
+
+          {/* Center deck + trump */}
+          <div className="flex items-center gap-6 mb-8">
+            {/* Deck */}
+            <div className="relative">
+              {Array.from({ length: Math.min(5, 30 - dealingCards.myCards.length * 2 - dealingCards.opCards.length * 2) }).map((_, i) => (
+                <div key={`deck-${i}`} className="absolute rounded-lg border border-gray-600"
+                  style={{
+                    background: CARD_BACK,
+                    width: "5rem", height: "7.5rem",
+                    top: -i * 2, left: i * 1,
+                    zIndex: i,
+                    transition: "all 0.3s ease",
+                  }} />
+              ))}
+              <div style={{ width: "5rem", height: "7.5rem" }}>
+                <Card faceDown size="normal" />
+              </div>
+            </div>
+
+            {/* Trump card — revealed after first card is dealt */}
+            {dealingCards.myCards.length + dealingCards.opCards.length > 0 && dealingCards.trumpCard && (
+              <div className="deal-trump-reveal">
+                <div className="flex flex-col items-center">
+                  <span className="text-amber-300/90 text-xs font-bold mb-1 tracking-wide">{t.trump}</span>
+                  <div className="trump-glow rounded-lg">
+                    <Card card={dealingCards.trumpCard} size="normal" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* My dealt cards (bottom) */}
+          <div className="flex items-center justify-center gap-2 mt-0 h-24">
+            {dealingCards.myCards.map((c, i) => (
+              <div key={`deal-my-${c}`} className="deal-card-enter-me">
+                <Card card={c} size="normal" />
+              </div>
+            ))}
+          </div>
+
+          {/* Done indicator */}
+          {dealingCards.done && (
+            <div className="mt-4 text-amber-300/80 text-sm font-bold animate-pulse tracking-wider">
+              {gameState?.leadPhase && gameState?.turn === playerIdx ? t.yourTurnLead : t.oppTurnLead}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Ready Modal — new hand/match start */}
       {gameState?.handPhase === "ready" && gameState?.phase === "playing" && (
@@ -1184,6 +1552,11 @@ function GameInner({ lang, setLang }) {
             <button onClick={newMatch} className="w-full py-3 bg-amber-700 hover:bg-amber-600 text-white font-semibold rounded-xl transition-colors shadow-lg">{t.newMatch}</button>
           </div>
         </div>
+      )}
+
+      {/* Chat Widget */}
+      {gameState && playerIdx !== null && (
+        <ChatWidget gameId={gameId} playerIdx={playerIdx} gameState={gameState} setGameState={setGameState} />
       )}
     </div>
   );
