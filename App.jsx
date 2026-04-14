@@ -241,9 +241,18 @@ function getGameIdFromURL() {
   return params.get("game");
 }
 
-function setGameIdInURL(id) {
+function getPlayerSlotFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const p = params.get("p");
+  return p === "0" || p === "1" ? Number(p) : null;
+}
+
+function setGameIdInURL(id, playerSlot) {
   const url = new URL(window.location);
   url.searchParams.set("game", id);
+  if (playerSlot !== undefined && playerSlot !== null) {
+    url.searchParams.set("p", String(playerSlot));
+  }
   window.history.replaceState({}, "", url);
 }
 
@@ -645,10 +654,9 @@ function GameInner({ lang, setLang }) {
     // Helper: claim a player slot
     const claimSlot = async (idx) => {
       setPlayerIdx(idx); playerIdxRef.current = idx;
-      setGameId(gid); gameIdRef.current = gid; setGameIdInURL(gid);
+      setGameId(gid); gameIdRef.current = gid; setGameIdInURL(gid, idx);
       s.lastActivity[idx] = now;
       if (s.tabIds) s.tabIds[idx] = myTabId;
-      try { localStorage.setItem(`bura_slot_${gid}`, String(idx)); } catch {}
       await saveGameState(gid, s);
       setGameState(s); setPhase(s.phase === "lobby" ? "lobby" : s.phase);
       startSync(gid);
@@ -658,16 +666,11 @@ function GameInner({ lang, setLang }) {
     if (s.tabIds?.[0] === myTabId) { await claimSlot(0); return; }
     if (s.tabIds?.[1] === myTabId) { await claimSlot(1); return; }
 
-    // 2. Check if we previously had a slot on this device (same browser, different tab)
-    try {
-      const savedSlot = localStorage.getItem(`bura_slot_${gid}`);
-      if (savedSlot !== null) {
-        const idx = Number(savedSlot);
-        if (idx === 0 || idx === 1) {
-          await claimSlot(idx); return;
-        }
-      }
-    } catch {}
+    // 2. Check URL param ?p= (survives Messenger→Safari switch on iOS)
+    const urlSlot = getPlayerSlotFromURL();
+    if (urlSlot !== null && (urlSlot === 0 || urlSlot === 1)) {
+      await claimSlot(urlSlot); return;
+    }
 
     // 3. Game not full yet — join as player 1
     if (s.players < 2) {
@@ -697,8 +700,7 @@ function GameInner({ lang, setLang }) {
       tabIds: [tabIdRef.current, null],
     };
     setGameId(gid); setPlayerIdx(0); playerIdxRef.current = 0; gameIdRef.current = gid;
-    setGameState(state); setPhase("lobby"); setGameIdInURL(gid);
-    try { localStorage.setItem(`bura_slot_${gid}`, "0"); } catch {}
+    setGameState(state); setPhase("lobby"); setGameIdInURL(gid, 0);
     await saveGameState(gid, state); startSync(gid);
   }, [startSync, lobbyPlayTo]);
 
@@ -1012,6 +1014,7 @@ function GameInner({ lang, setLang }) {
     // Clear URL
     const url = new URL(window.location);
     url.searchParams.delete("game");
+    url.searchParams.delete("p");
     window.history.replaceState({}, "", url);
   }, []);
 
@@ -1039,7 +1042,10 @@ function GameInner({ lang, setLang }) {
 
   const shareURL = useMemo(() => {
     if (!gameId) return "";
-    const url = new URL(window.location); url.searchParams.set("game", gameId); return url.toString();
+    const url = new URL(window.location);
+    url.searchParams.set("game", gameId);
+    url.searchParams.delete("p"); // don't share our player slot
+    return url.toString();
   }, [gameId]);
 
   const myHand = gameState?.hands?.[playerIdx] || [];
@@ -1277,50 +1283,29 @@ function GameInner({ lang, setLang }) {
               </div>
             </div>
           )}
-          {/* Score piles */}
-          <div className="flex flex-col items-center gap-2 mt-1">
-            {/* My pile */}
-            <div className="flex flex-col items-center">
-              <span className="text-green-300/70 text-[10px] font-semibold mb-0.5">{t.yourPile}</span>
-              <div className={`relative w-10 h-[3rem] ${myScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={myScorePile.length}>
-                {myScorePile.length > 0 ? (
-                  <>
-                    {Array.from({ length: Math.min(myScorePile.length, 3) }).map((_, i) => (
-                      <div key={`mps-${i}`} className="absolute w-10 h-[3rem] rounded-md border border-gray-600 shadow-sm"
-                        style={{ background: CARD_BACK, top: -i * 1, left: i * 0.5 }} />
-                    ))}
-                    <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-black/80 text-amber-200 text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10">{myScorePile.length}</span>
-                  </>
-                ) : (
-                  <div className="w-10 h-[3rem] rounded-md border border-dashed border-green-800/25" />
-                )}
-              </div>
-            </div>
-            {/* Opp pile */}
-            <div className="flex flex-col items-center">
-              <span className="text-green-300/70 text-[10px] font-semibold mb-0.5">{t.oppPile}</span>
-              <div className={`relative w-10 h-[3rem] ${opScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={opScorePile.length}>
-                {opScorePile.length > 0 ? (
-                  <>
-                    {Array.from({ length: Math.min(opScorePile.length, 3) }).map((_, i) => (
-                      <div key={`ops-${i}`} className="absolute w-10 h-[3rem] rounded-md border border-gray-600 shadow-sm"
-                        style={{ background: CARD_BACK, top: -i * 1, left: i * 0.5 }} />
-                    ))}
-                    <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-black/80 text-amber-200 text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10">{opScorePile.length}</span>
-                  </>
-                ) : (
-                  <div className="w-10 h-[3rem] rounded-md border border-dashed border-green-800/25" />
-                )}
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Center: Hands + Tricks + Piles */}
         <div className="flex-1 flex flex-col justify-between px-2 sm:px-4 min-w-0">
 
-          {/* Opponent hand */}
-          <div className="flex items-center justify-center py-2">
+          {/* Opponent hand + pile */}
+          <div className="flex items-center justify-center gap-2 py-1">
+            <div className="flex flex-col items-center flex-shrink-0">
+              <span className="text-green-300/60 text-[9px] font-semibold">{t.oppPile}</span>
+              <div className={`relative w-8 h-[2.8rem] ${opScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={opScorePile.length}>
+                {opScorePile.length > 0 ? (
+                  <>
+                    {Array.from({ length: Math.min(opScorePile.length, 3) }).map((_, i) => (
+                      <div key={`ops-${i}`} className="absolute w-8 h-[2.8rem] rounded-sm border border-gray-600"
+                        style={{ background: CARD_BACK, top: -i, left: i * 0.4 }} />
+                    ))}
+                    <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-black/80 text-amber-200 text-[9px] font-bold px-1 rounded-full z-10">{opScorePile.length}</span>
+                  </>
+                ) : (
+                  <div className="w-8 h-[2.8rem] rounded-sm border border-dashed border-green-800/25" />
+                )}
+              </div>
+            </div>
             <div className="flex items-center gap-0.5">
               {opHand.map((_, i) => (
                 <div key={`op-${dealAnimKey}-${i}`} className="animate-slide-deal-opp" style={{ animationDelay: `${i * 200}ms` }}>
@@ -1412,37 +1397,54 @@ function GameInner({ lang, setLang }) {
             )}
           </div>
 
-          {/* My hand + actions area */}
-          <div className="mt-auto pb-2">
-            {/* Action buttons row */}
-            <div className="flex justify-center gap-3 pb-1.5">
-              {canDouble && isPlaying && !doublingWaiting && (
-                <button onClick={proposeDouble} className="px-5 py-2 rounded-xl font-bold text-sm bg-red-800/80 hover:bg-red-700 text-white transition-all duration-200 shadow-lg border border-red-600/30 hover:scale-105 active:scale-95">
+          {/* My hand + pile */}
+          <div className="mt-auto">
+            <div className="flex items-end justify-center gap-2 py-1">
+              <div className="flex flex-col items-center flex-shrink-0 self-end mb-1">
+                <span className="text-green-300/60 text-[9px] font-semibold">{t.yourPile}</span>
+                <div className={`relative w-8 h-[2.8rem] ${myScorePile.length > 0 ? "animate-pile-collect" : ""}`} key={myScorePile.length}>
+                  {myScorePile.length > 0 ? (
+                    <>
+                      {Array.from({ length: Math.min(myScorePile.length, 3) }).map((_, i) => (
+                        <div key={`mps-${i}`} className="absolute w-8 h-[2.8rem] rounded-sm border border-gray-600"
+                          style={{ background: CARD_BACK, top: -i, left: i * 0.4 }} />
+                      ))}
+                      <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-black/80 text-amber-200 text-[9px] font-bold px-1 rounded-full z-10">{myScorePile.length}</span>
+                    </>
+                  ) : (
+                    <div className="w-8 h-[2.8rem] rounded-sm border border-dashed border-green-800/25" />
+                  )}
+                </div>
+              </div>
+              <div className="flex items-end justify-center gap-1 sm:gap-2 hand-fan min-w-0">
+                {myHand.map((c, i) => {
+                  const isNew = newMyCards.includes(c);
+                  return (
+                    <div key={c} className={isNew ? "animate-slide-deal" : ""} style={isNew ? { animationDelay: `${i * 200}ms` } : {}}>
+                      <Card card={c} selected={selectedCards.includes(c)} onClick={() => toggleCard(c)}
+                        disabled={!isMyTurn || !isPlaying || !!gameState?.doublingPhase || inShowdown} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          {/* Action buttons — fixed bottom strip, separate from card layout */}
+          {(isMyTurn && isPlaying && !gameState?.doublingPhase) && (
+            <div className="flex justify-center gap-3 py-1.5 bg-black/40 border-t border-green-900/30">
+              {canDouble && !doublingWaiting && (
+                <button onClick={proposeDouble} className="px-4 py-1.5 rounded-lg font-bold text-xs bg-red-800/80 hover:bg-red-700 text-white transition-all shadow border border-red-600/30">
                   {nextStakeLabel(gameState?.stakeLevel || 0)}
                 </button>
               )}
-              {isMyTurn && isPlaying && !gameState?.doublingPhase && (
-                <button onClick={playCards} disabled={!canPlay}
-                  className={`px-8 py-2 rounded-xl font-semibold text-sm transition-all duration-200 shadow-lg ${canPlay ? "bg-amber-600 hover:bg-amber-500 hover:scale-105 active:scale-95 text-white" : "bg-gray-700/50 text-gray-500 cursor-not-allowed"}`}>
-                  {gameState?.leadPhase
-                    ? `${t.play} ${selectedCards.length || "?"} ${selectedCards.length !== 1 ? t.cards : t.card}`
-                    : `${t.respondWith} ${selectedCards.length}/${reqResp}`}
-                </button>
-              )}
+              <button onClick={playCards} disabled={!canPlay}
+                className={`px-6 py-1.5 rounded-lg font-semibold text-xs transition-all shadow ${canPlay ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-gray-700/50 text-gray-500 cursor-not-allowed"}`}>
+                {gameState?.leadPhase
+                  ? `${t.play} ${selectedCards.length || "?"} ${selectedCards.length !== 1 ? t.cards : t.card}`
+                  : `${t.respondWith} ${selectedCards.length}/${reqResp}`}
+              </button>
             </div>
-            {/* Hand row */}
-            <div className="flex items-end justify-center gap-1 sm:gap-2 hand-fan">
-              {myHand.map((c, i) => {
-                const isNew = newMyCards.includes(c);
-                return (
-                  <div key={c} className={isNew ? "animate-slide-deal" : ""} style={isNew ? { animationDelay: `${i * 200}ms` } : {}}>
-                    <Card card={c} selected={selectedCards.includes(c)} onClick={() => toggleCard(c)}
-                      disabled={!isMyTurn || !isPlaying || !!gameState?.doublingPhase || inShowdown} />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
