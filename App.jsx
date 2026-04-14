@@ -861,55 +861,53 @@ function GameInner({ lang, setLang }) {
     return () => clearTimeout(timer);
   }, [gameState?.trickShowdown?.resolveAt, resolveTrickShowdown]);
 
-  // ── Deal animation: when handPhase becomes "dealing", animate cards one by one ──
+  // ── Deal animation: purely local overlay when handPhase transitions to "playing" ──
+  const prevHandPhaseRef = useRef(null);
   useEffect(() => {
-    if (!gameState || gameState.handPhase !== "dealing" || !gameId || playerIdx === null) return;
-    const myIdx = playerIdx;
-    const opIdx = 1 - playerIdx;
-    const myCards = gameState.hands[myIdx] || [];
-    const opCards = gameState.hands[opIdx] || [];
-    const dealerIdx = gameState.dealer;
-    // Deal order: non-dealer gets first card, alternate, 3 each = 6 deals
-    const firstIdx = 1 - dealerIdx;
-    const sequence = [];
-    for (let i = 0; i < 3; i++) {
-      sequence.push({ target: firstIdx, cardIdx: i });
-      sequence.push({ target: 1 - firstIdx, cardIdx: i });
-    }
-    // Start with empty hands showing, reveal cards one at a time
-    setDealingCards({ myCards: [], opCards: [], trumpCard: gameState.trumpCard, done: false });
+    const prev = prevHandPhaseRef.current;
+    const cur = gameState?.handPhase;
+    prevHandPhaseRef.current = cur;
 
-    const timers = [];
-    sequence.forEach((step, i) => {
+    // Trigger deal animation when transitioning from ready → playing
+    if (prev === "ready" && cur === "playing" && gameState && playerIdx !== null) {
+      const myIdx = playerIdx;
+      const opIdx = 1 - playerIdx;
+      const myCards = gameState.hands[myIdx] || [];
+      const opCards = gameState.hands[opIdx] || [];
+      const dealerIdx = gameState.dealer;
+      const firstIdx = 1 - dealerIdx;
+      const sequence = [];
+      for (let i = 0; i < 3; i++) {
+        sequence.push({ target: firstIdx, cardIdx: i });
+        sequence.push({ target: 1 - firstIdx, cardIdx: i });
+      }
+
+      setDealingCards({ myCards: [], opCards: [], trumpCard: gameState.trumpCard, done: false });
+
+      const timers = [];
+      sequence.forEach((step, i) => {
+        timers.push(setTimeout(() => {
+          setDealingCards(prev => {
+            if (!prev) return prev;
+            const next = { ...prev, myCards: [...prev.myCards], opCards: [...prev.opCards] };
+            if (step.target === myIdx) next.myCards.push(myCards[step.cardIdx]);
+            else next.opCards.push(opCards[step.cardIdx]);
+            return next;
+          });
+        }, 300 + i * 350));
+      });
+
       timers.push(setTimeout(() => {
-        setDealingCards(prev => {
-          if (!prev) return prev;
-          const next = { ...prev, myCards: [...prev.myCards], opCards: [...prev.opCards] };
-          if (step.target === myIdx) {
-            next.myCards.push(myCards[step.cardIdx]);
-          } else {
-            next.opCards.push(opCards[step.cardIdx]);
-          }
-          return next;
-        });
-      }, 300 + i * 350)); // 350ms between each card deal
-    });
+        setDealingCards(prev => prev ? { ...prev, done: true } : prev);
+      }, 300 + sequence.length * 350 + 400));
 
-    // After all cards dealt, brief pause then transition to playing
-    timers.push(setTimeout(() => {
-      setDealingCards(prev => prev ? { ...prev, done: true } : prev);
-    }, 300 + sequence.length * 350 + 400));
+      timers.push(setTimeout(() => {
+        setDealingCards(null);
+      }, 300 + sequence.length * 350 + 800));
 
-    timers.push(setTimeout(() => {
-      setDealingCards(null);
-      const state = { ...gameState, handPhase: "playing" };
-      state.moveCount++;
-      setGameState(state);
-      saveGameState(gameId, state);
-    }, 300 + sequence.length * 350 + 800));
-
-    return () => timers.forEach(clearTimeout);
-  }, [gameState?.handPhase === "dealing" ? gameState.moveCount : null, gameId, playerIdx]);
+      return () => { timers.forEach(clearTimeout); setDealingCards(null); };
+    }
+  }, [gameState?.handPhase, playerIdx]);
 
   const claim31 = useCallback(async () => {
     if (!gameState || playerIdx === null) return;
@@ -993,7 +991,7 @@ function GameInner({ lang, setLang }) {
     const state = { ...gameState, playersReady: [...(gameState.playersReady || [false, false])] };
     state.playersReady[playerIdx] = true;
     if (state.playersReady[0] && state.playersReady[1]) {
-      state.handPhase = "dealing";
+      state.handPhase = "playing";
       state.isNewMatch = false;
     }
     state.moveCount++;
