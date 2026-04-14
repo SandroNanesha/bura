@@ -88,6 +88,9 @@ const STRINGS = {
     handSizeLabel: "Hand size:",
     threeCard: "3 cards",
     fiveCard: "5 cards",
+    welcomeMsg: "Welcome message for opponent:",
+    welcomePlaceholder: "Write a message\u2026",
+    enter: "Enter",
   },
   ka: {
     greeting: "\u10DB\u10DD\u10D2\u10D4\u10E1\u10D0\u10DA\u10DB\u10D4\u10D1\u10D8\u10D7 \u10DB\u10D0\u10E0\u10D8\u10D0\u10DB, \u10E1\u10D0\u10DC\u10D0\u10DB \u10D7\u10D0\u10DB\u10D0\u10E8\u10E1 \u10D3\u10D0\u10D8\u10EC\u10E7\u10D4\u10D1\u10D7 \u10D3\u10D0\u10E0\u10EC\u10DB\u10E3\u10DC\u10D3\u10D8\u10D7 \u10E0\u10DD\u10DB \u10E1\u10D0\u10D1\u10D0\u10DC\u10D8 \u10E9\u10D8\u10EE\u10DD\u10DA\u10E8\u10D8\u10D0 \u10E9\u10D0\u10E1\u10DB\u10E3\u10DA\u10D8. \u10EC\u10D8\u10DC\u10D0\u10D0\u10E6\u10DB\u10D3\u10D4\u10D2 \u10E8\u10D4\u10DB\u10D7\u10EE\u10D5\u10D4\u10D5\u10D0\u10E8\u10D8 \u10D7\u10E5\u10D5\u10D4\u10DC \u10D5\u10D4\u10E0 \u10DB\u10DD\u10D0\u10EE\u10D4\u10E0\u10EE\u10D4\u10D1\u10D7 \u10D7\u10D0\u10DB\u10D0\u10E8\u10E8\u10D8 \u10DB\u10DD\u10DC\u10D0\u10EC\u10D8\u10DA\u10D4\u10DD\u10D1\u10D0\u10E1.",
@@ -175,6 +178,9 @@ const STRINGS = {
     handSizeLabel: "\u10D9\u10D0\u10E0\u10E2\u10D4\u10D1\u10D8\u10E1 \u10E0\u10D0\u10DD\u10D3\u10D4\u10DC\u10DD\u10D1\u10D0:",
     threeCard: "3 \u10D9\u10D0\u10E0\u10E2\u10D8",
     fiveCard: "5 \u10D9\u10D0\u10E0\u10E2\u10D8",
+    welcomeMsg: "\u10DB\u10D8\u10E1\u10D0\u10E1\u10D0\u10DA\u10DB\u10D4\u10D1\u10D8 \u10E2\u10D4\u10E5\u10E1\u10E2\u10D8 \u10DB\u10DD\u10EC\u10D8\u10DC\u10D0\u10D0\u10E6\u10DB\u10D3\u10D4\u10D2\u10D8\u10E1\u10D7\u10D5\u10D8\u10E1:",
+    welcomePlaceholder: "\u10D3\u10D0\u10EC\u10D4\u10E0\u10D4\u10D7 \u10E8\u10D4\u10E2\u10E7\u10DD\u10D1\u10D8\u10DC\u10D4\u10D1\u10D0\u2026",
+    enter: "\u10E8\u10D4\u10E1\u10D5\u10DA\u10D0",
   },
 };
 
@@ -436,7 +442,7 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
       {/* Chat toggle button */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="fixed right-1 top-1/2 -translate-y-1/2 z-40 w-9 h-9 rounded-full bg-green-800/90 hover:bg-green-700 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 border border-green-600/30"
+        className="fixed right-1 top-1/2 -translate-y-1/2 z-[60] w-9 h-9 rounded-full bg-green-800/90 hover:bg-green-700 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 border border-green-600/30"
       >
         {open ? (
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -453,10 +459,15 @@ function ChatWidget({ gameId, playerIdx, gameState, setGameState }) {
       {/* Chat panel */}
       {open && (
         <div className="fixed right-3 left-20 sm:left-auto sm:w-72 z-50 bg-gray-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-green-800/40 flex flex-col overflow-hidden animate-chat-open" style={{ top: "15%", maxHeight: "50vh" }}>
-          {/* Header */}
-          <div className="px-4 py-2.5 bg-black/40 border-b border-green-800/30 flex items-center justify-between">
+          {/* Header with close button */}
+          <div className="px-3 py-2 bg-black/40 border-b border-green-800/30 flex items-center justify-between flex-shrink-0">
             <span className="text-amber-200 font-bold text-sm">{t.chat}</span>
-            <span className="text-green-400/60 text-xs">{messages.length} msg</span>
+            <div className="flex items-center gap-2">
+              <span className="text-green-400/60 text-xs">{messages.length} msg</span>
+              <button onClick={() => setOpen(false)} className="w-6 h-6 rounded-full bg-black/40 hover:bg-red-800/60 text-green-300 hover:text-white flex items-center justify-center transition-colors">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
@@ -569,14 +580,19 @@ function GameInner({ lang, setLang }) {
   const [gameId, setGameId] = useState(getGameIdFromURL);
   const [playerIdx, setPlayerIdx] = useState(null);
   const [gameState, setGameState] = useState(null);
-  // If URL has ?game=, start in "loading" to avoid flash of menu
-  const [phase, setPhase] = useState(() => getGameIdFromURL() ? "loading" : "menu");
+  // If URL has ?game=, start in "welcome" (for guests) or "loading" (for creator)
+  const [phase, setPhase] = useState(() => {
+    if (!getGameIdFromURL()) return "menu";
+    // If ?p= is set, this is the creator reopening — skip welcome
+    return getPlayerSlotFromURL() !== null ? "loading" : "welcome";
+  });
   const [selectedCards, setSelectedCards] = useState([]);
   const [statusMsg, setStatusMsg] = useState("");
   const [opponentConnected, setOpponentConnected] = useState(false);
   const [opponentEverConnected, setOpponentEverConnected] = useState(false);
   const [lobbyPlayTo, setLobbyPlayTo] = useState(11);
   const [lobbyHandSize, setLobbyHandSize] = useState(3);
+  const [lobbyWelcome, setLobbyWelcome] = useState("");
   const [collectingTrick, setCollectingTrick] = useState(null); // { cards, winner } during collect animation
   const prevHandRef = useRef([]);
   const prevOppHandRef = useRef([]);
@@ -716,9 +732,10 @@ function GameInner({ lang, setLang }) {
   }, [startSync, lobbyPlayTo, lobbyHandSize]);
 
   useEffect(() => {
+    if (phaseRef.current === "welcome") return; // wait for guest to tap Enter
     const urlGameId = getGameIdFromURL();
     if (urlGameId) { setGameId(urlGameId); joinGame(urlGameId); }
-  }, [joinGame]);
+  }, [joinGame, phase]);
 
   const [joinCode, setJoinCode] = useState("");
 
@@ -1048,9 +1065,11 @@ function GameInner({ lang, setLang }) {
     if (!gameId) return "";
     const url = new URL(window.location);
     url.searchParams.set("game", gameId);
-    url.searchParams.delete("p"); // don't share our player slot
+    url.searchParams.delete("p");
+    if (lobbyWelcome.trim()) url.searchParams.set("msg", lobbyWelcome.trim());
+    else url.searchParams.delete("msg");
     return url.toString();
-  }, [gameId]);
+  }, [gameId, lobbyWelcome]);
 
   const myHand = gameState?.hands?.[playerIdx] || [];
   const opHand = gameState?.hands?.[playerIdx === null ? 0 : 1 - playerIdx] || [];
@@ -1076,6 +1095,27 @@ function GameInner({ lang, setLang }) {
   }, [myHand, opHand, newMyCards, newOpCards]);
 
   const TABLE_BG = { background: "radial-gradient(ellipse at center, #1a4d2e 0%, #0d2818 70%, #091a10 100%)" };
+
+  // ── WELCOME (guest opening link for the first time) ──
+  if (phase === "welcome") {
+    const welcomeText = new URLSearchParams(window.location.search).get("msg");
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={TABLE_BG}>
+        <div className="bg-black/40 backdrop-blur-sm rounded-2xl p-8 sm:p-10 max-w-sm w-full mx-4 border border-amber-700/30 shadow-2xl text-center animate-chat-open">
+          <h1 className="text-3xl sm:text-4xl font-bold text-amber-100 mb-6" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.5)" }}>{t.title}</h1>
+          {welcomeText && (
+            <div className="bg-amber-900/30 border border-amber-700/30 rounded-xl px-5 py-4 mb-8">
+              <p className="text-amber-200/90 text-lg leading-relaxed">{welcomeText}</p>
+            </div>
+          )}
+          <button onClick={() => setPhase("loading")}
+            className="w-full py-3 bg-amber-700 hover:bg-amber-600 text-white font-bold text-lg rounded-xl transition-colors shadow-lg active:scale-95">
+            {t.enter}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ── LOADING (joining via URL) ──
   if (phase === "loading") {
@@ -1122,6 +1162,12 @@ function GameInner({ lang, setLang }) {
                 </button>
               ))}
             </div>
+          </div>
+          <div className="mb-4">
+            <p className="text-green-200/70 text-sm mb-2 text-center">{t.welcomeMsg}</p>
+            <input type="text" value={lobbyWelcome} onChange={e => setLobbyWelcome(e.target.value)}
+              placeholder={t.welcomePlaceholder} maxLength={200}
+              className="w-full px-4 py-2.5 rounded-xl bg-black/30 border border-green-800/50 text-amber-100 placeholder-green-700/60 focus:outline-none focus:border-amber-600 text-sm" />
           </div>
           <button onClick={createGame} className="w-full py-3 px-6 bg-amber-700 hover:bg-amber-600 text-white font-semibold rounded-xl mb-4 transition-colors shadow-lg text-lg">{t.createGame}</button>
           <div className="flex gap-2">
